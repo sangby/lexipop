@@ -6,7 +6,7 @@ Windows 划词翻译工具。后台常驻托盘，拖选文字后显示「译」
 
 ## 使用方式
 
-- 拖选文字后，点击鼠标旁的「译」按钮；或按 `Ctrl+Alt+S`，直接在鼠标旁打开结果卡片。
+- 拖选文字后，点击鼠标旁的「译」按钮；或按 `Ctrl+Alt+S`，直接在鼠标旁打开结果卡片。卡片关闭后按 `Ctrl+Alt+R` 可再次显示上一次完成的查询结果；两个快捷键都能在设置页修改。
 - 单词先查本地 `dict.bin` 词库。词库未命中的文本可由配置的模型提供方翻译。
 - 点击托盘图标或右键选择「设置」来调整划词、长句翻译、模型与主题；再次启动程序也会打开设置。
 - 可选 DeepSeek、OpenAI、OpenRouter 或自定义 OpenAI 兼容服务。选定提供方会填入端点；「抓取模型」从其 `/models` 接口取得模型 ID。模型列表可能包含不支持文本聊天的模型，需自行选择兼容 Chat Completions 的模型。
@@ -15,7 +15,7 @@ Windows 划词翻译工具。后台常驻托盘，拖选文字后显示「译」
 
 ## CSS 自定义主题
 
-设置页只保留「浅色」「玻璃」两个内置主题。点击「新建主题」会从当前主题生成 CSS 模板；编辑 `:root` 内的变量并点击「保存主题」，主题文件会保存在 `%LOCALAPPDATA%\LexiPop\themes\custom-*.css`。选中自定义主题后可再次编辑，也可用文本编辑器直接修改该文件。
+设置页提供「浅色」「深色（灰）」「玻璃」三个内置主题。点击「新建主题」会从当前主题生成 CSS 模板；编辑 `:root` 内的变量并点击「保存主题」，主题文件会保存在 `%LOCALAPPDATA%\LexiPop\themes\custom-*.css`。选中自定义主题后可再次编辑，也可用文本编辑器直接修改该文件。
 
 WPF 不直接使用浏览器 CSS。程序读取模板中的 `--name`、`--is-dark`、`--is-glass`、各颜色变量和三个 `--radius-...` 变量，再映射到 WPF 资源。颜色格式为 `#RRGGBB` 或 `#AARRGGBB`，圆角范围为 `0px` 到 `32px`；保存时会校验所需变量。
 
@@ -34,6 +34,8 @@ pwsh.exe -NoProfile -File ./tools/setup-signing-cert.ps1
 ```
 
 产物：`src\LexiPop\bin\Release\net10.0-windows\LexiPop.exe`
+
+本次迭代的可运行目录另存于 `dist\LexiPop-iteration-2\`，从该目录启动 `LexiPop.exe` 即可。该目录需要本机安装 .NET 10 Desktop Runtime。
 
 ## 代码签名
 

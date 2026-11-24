@@ -55,11 +55,88 @@
             <Setter Property="BorderBrush" Value="{DynamicResource ThemeBorder}" />
             <Setter Property="Padding" Value="8,4" />
             <Setter Property="FontSize" Value="13" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <Border x:Name="ComboBorder" Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" />
+                            <Grid Margin="1">
+                                <TextBlock x:Name="SelectionBox" Margin="8,4,30,4"
+                                           VerticalAlignment="Center"
+                                           Foreground="{TemplateBinding Foreground}"
+                                           Text="{Binding SelectedItem.Name, RelativeSource={RelativeSource TemplatedParent}}"
+                                           TextTrimming="CharacterEllipsis"
+                                           IsHitTestVisible="False" />
+                                <TextBox x:Name="PART_EditableTextBox" Margin="7,2,30,2"
+                                         Background="Transparent" BorderThickness="0"
+                                         Foreground="{TemplateBinding Foreground}"
+                                         VerticalContentAlignment="Center" Visibility="Hidden" />
+                                <ToggleButton x:Name="DropDownToggle" Width="30"
+                                              HorizontalAlignment="Right" Focusable="False"
+                                              Background="Transparent" BorderThickness="0"
+                                              Cursor="Hand"
+                                              IsChecked="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
+                                    <ToggleButton.Template>
+                                        <ControlTemplate TargetType="ToggleButton">
+                                            <Border Background="Transparent" />
+                                        </ControlTemplate>
+                                    </ToggleButton.Template>
+                                </ToggleButton>
+                                <TextBlock Text="⌄" Foreground="{DynamicResource ThemeTextSecondary}"
+                                           Width="30" HorizontalAlignment="Right"
+                                           VerticalAlignment="Center" TextAlignment="Center"
+                                           IsHitTestVisible="False" />
+                            </Grid>
+                            <Popup x:Name="PART_Popup" Placement="Bottom" AllowsTransparency="True"
+                                   IsOpen="{TemplateBinding IsDropDownOpen}" Focusable="False">
+                                <Border Background="{TemplateBinding Background}"
+                                        BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1"
+                                        MinWidth="{Binding ActualWidth, ElementName=ComboBorder}"
+                                        MaxHeight="320">
+                                    <ScrollViewer VerticalScrollBarVisibility="Auto" CanContentScroll="True">
+                                        <ItemsPresenter />
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsEditable" Value="False">
+                                <Setter TargetName="DropDownToggle" Property="Width" Value="Auto" />
+                                <Setter TargetName="DropDownToggle" Property="HorizontalAlignment" Value="Stretch" />
+                            </Trigger>
+                            <Trigger Property="IsEditable" Value="True">
+                                <Setter TargetName="SelectionBox" Property="Visibility" Value="Hidden" />
+                                <Setter TargetName="PART_EditableTextBox" Property="Visibility" Value="Visible" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
         <Style TargetType="ComboBoxItem">
             <Setter Property="Background" Value="{DynamicResource ThemeSurface}" />
             <Setter Property="Foreground" Value="{DynamicResource ThemeTextPrimary}" />
             <Setter Property="Padding" Value="8,6" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBoxItem">
+                        <Border x:Name="ItemBorder" Background="{TemplateBinding Background}"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsHighlighted" Value="True">
+                                <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource ThemeSurfaceElevated}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource ThemeAccent}" />
+                                <Setter Property="Foreground" Value="#FFFFFF" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
     </Window.Resources>
 
@@ -80,14 +157,10 @@
                            FontWeight="SemiBold"
                            Foreground="{DynamicResource ThemeTextPrimary}"
                            Margin="18,14,0,14" />
-                <TextBlock Text="✕"
-                           FontSize="13"
-                           Foreground="{DynamicResource ThemeTextMuted}"
-                           HorizontalAlignment="Right"
-                           VerticalAlignment="Center"
-                           Margin="0,0,18,0"
-                           Cursor="Hand"
-                           MouseLeftButtonUp="OnClose" />
+                <Button Content="✕" Width="36" Height="36" Padding="0" Margin="0,0,10,0"
+                        HorizontalAlignment="Right" VerticalAlignment="Center"
+                        Background="Transparent" Foreground="{DynamicResource ThemeTextSecondary}"
+                        Cursor="Hand" Click="OnClose" />
             </Grid>
 
             <!-- 内容 -->
@@ -122,6 +195,8 @@
                     <TextBlock Text="快捷键" Style="{StaticResource GroupTitle}" />
                     <TextBlock Text="划词翻译（点击输入框后按下组合键）" Style="{StaticResource FieldLabel}" />
                     <TextBox x:Name="TranslateHotkeyBox" PreviewKeyDown="OnHotkeyKeyDown" />
+                    <TextBlock Text="再次显示上次结果（点击输入框后按下组合键）" Style="{StaticResource FieldLabel}" />
+                    <TextBox x:Name="RecallHotkeyBox" PreviewKeyDown="OnHotkeyKeyDown" />
 
                     <TextBlock Text="翻译" Style="{StaticResource GroupTitle}" />
                     <TextBlock Text="模型提供方" Style="{StaticResource FieldLabel}" />

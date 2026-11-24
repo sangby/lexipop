@@ -18,6 +18,9 @@ public sealed class AppSettings
     /// <summary>划词翻译的全局热键，格式如 "Ctrl+Alt+S"。</summary>
     public string HotkeyTranslate { get; set; } = "Ctrl+Alt+S";
 
+    /// <summary>再次显示上次查询结果的全局热键。</summary>
+    public string HotkeyRecall { get; set; } = "Ctrl+Alt+R";
+
     public bool EnableTranslation { get; set; } = true;
 
     public bool EnableSelectionPopup { get; set; } = true;

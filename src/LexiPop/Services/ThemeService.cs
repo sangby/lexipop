@@ -49,6 +49,12 @@ public static class ThemeService
             "#3B6CF6", "#5B85F8", "#16A34A", "#D97706", "#DC2626", "#ECEEF2",
             "#D9FFFFFF", "#66FFFFFF", "#33000000"),
 
+        new("dark", "深色（灰）", true, false,
+            "#292C31", "#34383E", "#3E434A", "#555B64",
+            "#F1F2F4", "#CDD1D7", "#A2A9B3",
+            "#6E92F7", "#88A5FA", "#62C98D", "#E9B76C", "#EC8181", "#30343A",
+            "#FF34383E", "#665F6874", "#FF555B64"),
+
         // 玻璃主题：窗口背景透明，由 Acrylic 提供真实 backdrop blur；
         // 采用"浅色磨砂玻璃"（半透明白 + 深色文字），在浅色桌面上对比度最好。
         new("glass", "玻璃", false, true,

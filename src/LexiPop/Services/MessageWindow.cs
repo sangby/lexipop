@@ -10,6 +10,7 @@ namespace LexiPop.Services;
 public sealed class MessageWindow : IDisposable
 {
     public const int HotkeyTranslate = 2;
+    public const int HotkeyRecall = 3;
 
     private readonly HwndSource _source;
     private bool _disposed;
@@ -73,6 +74,7 @@ public sealed class MessageWindow : IDisposable
         _disposed = true;
 
         NativeMethods.UnregisterHotKey(Handle, HotkeyTranslate);
+        NativeMethods.UnregisterHotKey(Handle, HotkeyRecall);
 
         _source.RemoveHook(WndProc);
         _source.Dispose();

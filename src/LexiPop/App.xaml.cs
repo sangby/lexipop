@@ -16,6 +16,7 @@ public partial class App : Application
     private SelectionPopup? _selectionPopup;
     private SettingsWindow? _settingsWindow;
     private bool _translateRegistered;
+    private bool _recallRegistered;
     private bool _ownsMutex;
 
     public static string LogPath => Path.Combine(AppContext.BaseDirectory, "lexipop.log");
@@ -129,12 +130,21 @@ public partial class App : Application
                     MessageBoxImage.Warning);
             }
 
+            if (settings.EnableSelectionPopup && !_recallRegistered)
+            {
+                MessageBox.Show(
+                    $"结果恢复热键 {settings.HotkeyRecall} 被其他程序占用，可在托盘「设置」中修改。",
+                    "LexiPop",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+            }
+
             // 划词浮窗：全局鼠标钩子检测拖拽选区（受设置开关控制）
             ApplySelectionPopup(settings.EnableSelectionPopup);
 
             _tray?.ShowBalloon(
                 "LexiPop 已启动",
-                $"拖选文字后点「译」，或按 {settings.HotkeyTranslate} 直接翻译。" );
+                $"拖选文字后点「译」；按 {settings.HotkeyTranslate} 翻译，按 {settings.HotkeyRecall} 恢复上次结果。" );
             Log("startup complete");
 
             // 带参数启动可直接预览浮窗结果，便于调试与外部程序调用。
@@ -162,9 +172,11 @@ public partial class App : Application
     private void RegisterHotkeys(AppSettings settings)
     {
         _messageWindow?.UnregisterHotkey(MessageWindow.HotkeyTranslate);
+        _messageWindow?.UnregisterHotkey(MessageWindow.HotkeyRecall);
         if (!settings.EnableSelectionPopup)
         {
             _translateRegistered = false;
+            _recallRegistered = false;
             return;
         }
         var translate = HotkeyParser.Parse(settings.HotkeyTranslate)
@@ -173,7 +185,12 @@ public partial class App : Application
         _translateRegistered = _messageWindow?.RegisterHotkey(
             MessageWindow.HotkeyTranslate, translate.Item1, translate.Item2) ?? false;
 
-        Log($"hotkey: translate={_translateRegistered} ({settings.HotkeyTranslate})");
+        var recall = HotkeyParser.Parse(settings.HotkeyRecall)
+                     ?? (NativeMethods.MOD_CONTROL | NativeMethods.MOD_ALT, 0x52u);
+        _recallRegistered = _messageWindow?.RegisterHotkey(
+            MessageWindow.HotkeyRecall, recall.Item1, recall.Item2) ?? false;
+
+        Log($"hotkey: translate={_translateRegistered} ({settings.HotkeyTranslate}), recall={_recallRegistered} ({settings.HotkeyRecall})");
     }
 
     private void ApplySelectionPopup(bool enabled)
@@ -268,6 +285,14 @@ public partial class App : Application
 
     private void OnHotkeyPressed(int id)
     {
+        if (id == MessageWindow.HotkeyRecall)
+        {
+            NativeMethods.GetCursorPos(out var lastCursor);
+            if (_selectionPopup?.ShowLastResultAt(lastCursor.X, lastCursor.Y) != true)
+                _tray?.ShowBalloon("暂无上次结果", "先完成一次划词查询或翻译。");
+            return;
+        }
+
         if (id != MessageWindow.HotkeyTranslate) return;
 
         // 先取词，再显示浮窗：浮窗出现后会改变 UIA 的焦点。

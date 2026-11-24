@@ -40,33 +40,33 @@
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
                 <Grid Grid.Row="0">
-                    <TextBlock x:Name="SourceText"
-                               FontSize="16"
-                               FontWeight="SemiBold"
-                               Foreground="{DynamicResource ThemeTextPrimary}"
-                               TextWrapping="Wrap"
-                               Margin="0,0,24,0" />
-                    <TextBlock Text="✕"
-                               FontSize="13"
-                               Foreground="{DynamicResource ThemeTextMuted}"
-                               HorizontalAlignment="Right"
-                               VerticalAlignment="Top"
-                               Cursor="Hand"
-                               MouseLeftButtonUp="OnCloseClicked" />
+                    <ScrollViewer x:Name="SourceScroll" Margin="0,0,26,0"
+                                  VerticalScrollBarVisibility="Auto">
+                        <TextBlock x:Name="SourceText"
+                                   FontSize="16"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource ThemeTextPrimary}"
+                                   TextWrapping="Wrap" />
+                    </ScrollViewer>
+                    <Button Content="✕" Width="24" Height="24" Padding="0"
+                            HorizontalAlignment="Right" VerticalAlignment="Top"
+                            Background="Transparent" Foreground="{DynamicResource ThemeTextMuted}"
+                            Cursor="Hand" Click="OnCloseClicked" />
                 </Grid>
 
-                <TextBlock x:Name="BodyText"
-                           Grid.Row="1"
-                           FontSize="14"
-                           Foreground="{DynamicResource ThemeTextSecondary}"
-                           TextWrapping="Wrap"
-                           LineHeight="24"
-                           Margin="0,10,0,0" />
+                <ScrollViewer x:Name="BodyScroll" Grid.Row="1" Margin="0,10,0,0"
+                              VerticalScrollBarVisibility="Auto">
+                    <TextBlock x:Name="BodyText"
+                               FontSize="14"
+                               Foreground="{DynamicResource ThemeTextSecondary}"
+                               TextWrapping="Wrap"
+                               LineHeight="24" />
+                </ScrollViewer>
 
                 <StackPanel x:Name="SpeakPanel"
                             Grid.Row="2"

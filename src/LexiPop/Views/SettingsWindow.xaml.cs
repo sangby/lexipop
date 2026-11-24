@@ -73,6 +73,7 @@ public partial class SettingsWindow : Window
 
         AutoStartCheck.IsChecked = AutoStart.IsEnabled();
         TranslateHotkeyBox.Text = settings.HotkeyTranslate;
+        RecallHotkeyBox.Text = settings.HotkeyRecall;
 
         ProviderCombo.ItemsSource = ModelProviders.All;
         ProviderCombo.DisplayMemberPath = "Name";
@@ -202,7 +203,7 @@ public partial class SettingsWindow : Window
 
     private void OnSelectionHelp(object sender, RoutedEventArgs e) =>
         MessageBox.Show(this,
-            "在其他程序中拖选文字，鼠标旁会出现「译」按钮；点击后显示本地词典结果或长句译文。也可以按划词热键，直接在鼠标附近展开结果。",
+            "在其他程序中拖选文字，鼠标旁会出现「译」按钮；点击后显示本地词典结果或长句译文。也可以按划词热键直接展开结果，关闭后按“再次显示上次结果”热键恢复。",
             "划词翻译", MessageBoxButton.OK, MessageBoxImage.Information);
 
     private void OnLongTextHelp(object sender, RoutedEventArgs e) =>
@@ -253,11 +254,22 @@ public partial class SettingsWindow : Window
             return;
         }
 
+        var translateHotkey = HotkeyParser.Parse(TranslateHotkeyBox.Text.Trim());
+        var recallHotkey = HotkeyParser.Parse(RecallHotkeyBox.Text.Trim());
+        if (translateHotkey is null || recallHotkey is null ||
+            translateHotkey == recallHotkey)
+        {
+            MessageBox.Show(this, "请设置两个不同的有效快捷键。", "LexiPop",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
         if (ThemeEditor.Visibility == Visibility.Visible && !SaveTheme()) return;
 
         var settings = AppSettings.Load();
 
         settings.HotkeyTranslate = TranslateHotkeyBox.Text.Trim();
+        settings.HotkeyRecall = RecallHotkeyBox.Text.Trim();
         settings.ProviderId = (ProviderCombo.SelectedItem as ModelProvider)?.Id ?? "deepseek";
         settings.ApiKey = ApiKeyBox.Text.Trim();
         settings.Endpoint = EndpointBox.Text.Trim();
@@ -296,7 +308,7 @@ public partial class SettingsWindow : Window
         Close();
     }
 
-    private void OnClose(object sender, MouseButtonEventArgs e)
+    private void OnClose(object sender, RoutedEventArgs e)
     {
         Close();
     }

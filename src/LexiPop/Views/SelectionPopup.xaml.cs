@@ -17,6 +17,9 @@ public partial class SelectionPopup : Window
     private int _requestVersion;
     private int _anchorX;
     private int _anchorY;
+    private (string Source, string Body, (string Text, string Label, string Lcid)[] Speech)? _lastResult;
+
+    public bool HasLastResult => _lastResult is not null;
 
     public SelectionPopup()
     {
@@ -41,18 +44,40 @@ public partial class SelectionPopup : Window
         _ = ShowCardAsync();
     }
 
+    public bool ShowLastResultAt(int screenX, int screenY)
+    {
+        if (_lastResult is not { } result) return false;
+
+        _requestVersion++;
+        ButtonState.Visibility = Visibility.Collapsed;
+        CardState.Visibility = Visibility.Visible;
+        SourceText.Text = result.Source;
+        BodyText.Text = result.Body;
+        SpeakPanel.Children.Clear();
+        foreach (var (text, label, lcid) in result.Speech)
+            AddSpeakButton(text, label, lcid);
+        SourceScroll.ScrollToTop();
+        BodyScroll.ScrollToTop();
+        PositionAt(screenX, screenY);
+        return true;
+    }
+
     private void PositionAt(int screenX, int screenY)
     {
         _anchorX = screenX;
         _anchorY = screenY;
         var dpi = VisualTreeHelper.GetDpi(this);
+        var bounds = System.Windows.Forms.Screen.FromPoint(
+            new System.Drawing.Point(screenX, screenY)).WorkingArea;
+        var maxHeight = Math.Max(120, bounds.Height / dpi.DpiScaleY - 24);
+        CardState.MaxHeight = maxHeight;
+        SourceScroll.MaxHeight = Math.Min(120, maxHeight * 0.25);
+        BodyScroll.MaxHeight = Math.Max(24, maxHeight - SourceScroll.MaxHeight - 82);
         Left = screenX / dpi.DpiScaleX + 8;
         Top = screenY / dpi.DpiScaleY + 8;
         if (!IsVisible) Show();
         UpdateLayout();
 
-        var bounds = System.Windows.Forms.Screen.FromPoint(
-            new System.Drawing.Point(screenX, screenY)).WorkingArea;
         Left = Math.Clamp(Left, bounds.Left / dpi.DpiScaleX,
             Math.Max(bounds.Left / dpi.DpiScaleX,
                 bounds.Right / dpi.DpiScaleX - ActualWidth));
@@ -82,6 +107,8 @@ public partial class SelectionPopup : Window
 
         SourceText.Text = text;
         BodyText.Text = "查询中…";
+        SourceScroll.ScrollToTop();
+        BodyScroll.ScrollToTop();
         SpeakPanel.Children.Clear();
         PositionAt(_anchorX, _anchorY);
 
@@ -91,6 +118,7 @@ public partial class SelectionPopup : Window
         if (entry is not null)
         {
             RenderEntry(entry);
+            RememberResult((entry.Word, "▶ 发音", SpeechService.EnglishLcid));
             PositionAt(_anchorX, _anchorY);
             return;
         }
@@ -116,6 +144,9 @@ public partial class SelectionPopup : Window
             BodyText.Text = translation;
             AddSpeakButton(text, "▶ 原文", SpeechService.EnglishLcid);
             AddSpeakButton(translation, "▶ 译文", SpeechService.ChineseLcid);
+            RememberResult(
+                (text, "▶ 原文", SpeechService.EnglishLcid),
+                (translation, "▶ 译文", SpeechService.ChineseLcid));
             PositionAt(_anchorX, _anchorY);
         }
         catch (Exception ex)
@@ -126,6 +157,11 @@ public partial class SelectionPopup : Window
                 PositionAt(_anchorX, _anchorY);
             }
         }
+    }
+
+    private void RememberResult(params (string Text, string Label, string Lcid)[] speech)
+    {
+        _lastResult = (SourceText.Text, BodyText.Text, speech);
     }
 
     private void RenderEntry(DictionaryEntry entry)
@@ -162,7 +198,7 @@ public partial class SelectionPopup : Window
         SpeakPanel.Children.Add(button);
     }
 
-    private void OnCloseClicked(object sender, MouseButtonEventArgs e)
+    private void OnCloseClicked(object sender, RoutedEventArgs e)
     {
         e.Handled = true;
         _requestVersion++;
