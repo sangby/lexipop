@@ -1,0 +1,56 @@
+# .NET / MSBuild 生成文件
+**/bin/
+**/obj/
+artifacts/
+publish/
+dist/
+*.binlog
+*.nupkg
+*.snupkg
+TestResults/
+coverage/
+
+# 项目内的 SDK、依赖缓存及临时文件
+.dotnet/
+.dotnet-home/
+.nuget/
+.tmp/
+tools/*.zip
+tools/dotnet-install.ps1
+*.tmp
+*.bak
+
+# 本地词库及下载的原始数据（不提交大型或来源待确认的数据）
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# 运行时配置、密钥、证书及日志
+settings.json
+translation-cache.json
+.env
+.env.*
+!.env.example
+*.log
+*.dmp
+*.pfx
+*.p12
+*.pem
+*.key
+*.snk
+lexipop-dev.cer
+
+# IDE 和用户设置
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.rsuser
+*.userosscache
+
+# 操作系统文件
+Thumbs.db
+Desktop.ini
+.DS_Store

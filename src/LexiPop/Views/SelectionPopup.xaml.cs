@@ -1,0 +1,143 @@
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Media;
+using LexiPop.Models;
+using LexiPop.Services;
+
+namespace LexiPop.Views;
+
+/// <summary>
+/// 划词浮窗：默认是一个小按钮，点击后展开成查询/翻译卡片。
+/// 文本在弹按钮前已经取好并缓存，点击不会导致选区丢失。
+/// </summary>
+public partial class SelectionPopup : Window
+{
+    private string _selected = string.Empty;
+
+    public SelectionPopup()
+    {
+        InitializeComponent();
+    }
+
+    public void ShowAt(int screenX, int screenY, string text)
+    {
+        _selected = text;
+        ShowButtonState();
+
+        var dpi = VisualTreeHelper.GetDpi(this);
+        Left = screenX / dpi.DpiScaleX + 8;
+        Top = screenY / dpi.DpiScaleY + 8;
+
+        Show();
+    }
+
+    private void ShowButtonState()
+    {
+        ButtonState.Visibility = Visibility.Visible;
+        CardState.Visibility = Visibility.Collapsed;
+    }
+
+    private async void OnButtonClicked(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+        await ShowCardAsync();
+    }
+
+    private async Task ShowCardAsync()
+    {
+        ButtonState.Visibility = Visibility.Collapsed;
+        CardState.Visibility = Visibility.Visible;
+
+        SourceText.Text = _selected;
+        BodyText.Text = "查询中…";
+        SpeakPanel.Children.Clear();
+
+        var service = LookupService.Instance;
+
+        var entry = service.Lookup(_selected);
+        if (entry is not null)
+        {
+            RenderEntry(entry);
+            return;
+        }
+
+        if (!service.HasTranslator)
+        {
+            BodyText.Text = "未配置 API key，无法翻译。";
+            return;
+        }
+
+        try
+        {
+            var translation = await service.TranslateAsync(_selected);
+            BodyText.Text = translation;
+            AddSpeakButton(_selected, "▶ 原文", SpeechService.EnglishLcid);
+            AddSpeakButton(translation, "▶ 译文", SpeechService.ChineseLcid);
+        }
+        catch (Exception ex)
+        {
+            BodyText.Text = "翻译失败：" + ex.Message;
+        }
+    }
+
+    private void RenderEntry(DictionaryEntry entry)
+    {
+        SourceText.Text = string.IsNullOrEmpty(entry.Phonetic)
+            ? entry.Word
+            : $"{entry.Word}  /{entry.Phonetic}/";
+
+        BodyText.Text = entry.SenseLines.Count > 0
+            ? string.Join("\n", entry.SenseLines)
+            : entry.Translation;
+
+        AddSpeakButton(entry.Word, "▶ 发音", SpeechService.EnglishLcid);
+    }
+
+    private void AddSpeakButton(string text, string label, string lcid)
+    {
+        var button = new Border
+        {
+            Child = new TextBlock
+            {
+                Text = label,
+                FontSize = 12,
+                Foreground = ThemeService.Get("ThemeTextSecondary"),
+            },
+            Background = ThemeService.Get("ThemeSurfaceElevated"),
+            CornerRadius = new CornerRadius(6),
+            Padding = new Thickness(9, 4, 9, 4),
+            Margin = new Thickness(0, 0, 8, 0),
+            Cursor = Cursors.Hand,
+        };
+
+        button.MouseLeftButtonUp += (_, _) => SpeechService.Speak(text, lcid);
+        SpeakPanel.Children.Add(button);
+    }
+
+    private void OnCloseClicked(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+        Hide();
+    }
+
+    /// <summary>点击浮窗外部时收起。参数是物理像素坐标。</summary>
+    public void HideIfOutside(int screenX, int screenY)
+    {
+        if (!IsVisible) return;
+
+        var dpi = VisualTreeHelper.GetDpi(this);
+        var left = Left * dpi.DpiScaleX;
+        var top = Top * dpi.DpiScaleY;
+        var right = left + ActualWidth * dpi.DpiScaleX;
+        var bottom = top + ActualHeight * dpi.DpiScaleY;
+
+        var inside = screenX >= left && screenX <= right
+                  && screenY >= top && screenY <= bottom;
+
+        if (!inside) Hide();
+    }
+
+    private static SolidColorBrush Solid(string hex)
+        => (SolidColorBrush)new BrushConverter().ConvertFromString(hex)!;
+}

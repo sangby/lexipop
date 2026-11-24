@@ -1,0 +1,130 @@
+<Window x:Class="LexiPop.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="LexiPop"
+        Width="780"
+        Height="560"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        AllowsTransparency="True"
+        ShowInTaskbar="False"
+        Topmost="True"
+        Background="Transparent"
+        WindowStartupLocation="Manual"
+        FontFamily="Segoe UI Variable Text, Microsoft YaHei UI, Segoe UI"
+        KeyDown="OnKeyDown"
+        Deactivated="OnDeactivated">
+
+    <!-- 窗口本身透明（AllowsTransparency），面板底色由主题决定：
+         glass 主题为半透明（桌面透出），其余主题为不透明主题色。 -->
+    <Border Background="{DynamicResource ThemeWindowSurface}"
+            BorderBrush="{DynamicResource ThemeGlassBorder}"
+            BorderThickness="1">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- 搜索卡片：玻璃面板（无阴影，避免输入时逐帧重算） -->
+            <Border Grid.Row="0"
+                    Style="{StaticResource GlassPanelFlatStyle}"
+                    Margin="20,20,20,16"
+                    MouseLeftButtonDown="OnDragAreaMouseDown">
+                <Grid Margin="20,18">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock Grid.Column="0"
+                               Text="&#xE721;"
+                               FontFamily="Segoe Fluent Icons"
+                               FontSize="19"
+                               Foreground="{DynamicResource ThemeTextMuted}"
+                               VerticalAlignment="Center"
+                               Margin="0,0,16,0" />
+
+                    <Grid Grid.Column="1">
+                        <TextBox x:Name="SearchBox"
+                                 FontSize="21"
+                                 Foreground="{DynamicResource ThemeTextPrimary}"
+                                 Background="Transparent"
+                                 BorderThickness="0"
+                                 CaretBrush="{DynamicResource ThemeAccent}"
+                                 SelectionBrush="#554A8B"
+                                 VerticalAlignment="Center"
+                                 TextChanged="OnSearchTextChanged" />
+                        <TextBlock x:Name="Placeholder"
+                                   Text="输入单词或句子"
+                                   FontSize="21"
+                                   Foreground="{DynamicResource ThemeTextMuted}"
+                                   VerticalAlignment="Center"
+                                   IsHitTestVisible="False" />
+                    </Grid>
+
+                    <Border Grid.Column="2"
+                            Background="{DynamicResource ThemeGlassSurface}"
+                            BorderBrush="{DynamicResource ThemeGlassHighlight}"
+                            BorderThickness="1"
+                            CornerRadius="{DynamicResource ThemeRadiusSmall}"
+                            Padding="9,4"
+                            VerticalAlignment="Center">
+                        <TextBlock Text="Enter"
+                                   FontSize="10"
+                                   Foreground="{DynamicResource ThemeTextSecondary}" />
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- 结果区 -->
+            <Grid Grid.Row="1" Margin="20,0,20,16">
+                <StackPanel x:Name="EmptyState"
+                            VerticalAlignment="Center"
+                            HorizontalAlignment="Center">
+                    <TextBlock Text="&#xE8C8;"
+                               FontFamily="Segoe Fluent Icons"
+                               FontSize="42"
+                               Foreground="{DynamicResource ThemeGlassHighlight}"
+                               HorizontalAlignment="Center" />
+                    <TextBlock Text="输入单词查询释义"
+                               FontSize="15"
+                               Foreground="{DynamicResource ThemeTextSecondary}"
+                               HorizontalAlignment="Center"
+                               Margin="0,20,0,0" />
+                    <TextBlock Text="选中文本后按 Ctrl+Alt+S 划词翻译"
+                               FontSize="13"
+                               Foreground="{DynamicResource ThemeTextMuted}"
+                               HorizontalAlignment="Center"
+                               Margin="0,8,0,0" />
+                </StackPanel>
+
+                <ScrollViewer x:Name="ResultScroller"
+                              VerticalScrollBarVisibility="Auto"
+                              Visibility="Collapsed">
+                    <StackPanel x:Name="ResultPanel" Margin="0,4,0,0" />
+                </ScrollViewer>
+            </Grid>
+
+            <!-- 状态栏：玻璃条 -->
+            <Border Grid.Row="2"
+                    Background="{DynamicResource ThemeGlassSurface}"
+                    BorderBrush="{DynamicResource ThemeGlassBorder}"
+                    BorderThickness="0,1,0,0"
+                    Padding="20,8">
+                <Grid>
+                    <TextBlock x:Name="StatusText"
+                               Text="LexiPop 0.1"
+                               FontSize="11"
+                               Foreground="{DynamicResource ThemeTextMuted}" />
+                    <TextBlock Text="Esc 隐藏"
+                               FontSize="11"
+                               Foreground="{DynamicResource ThemeTextMuted}"
+                               HorizontalAlignment="Right" />
+                </Grid>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

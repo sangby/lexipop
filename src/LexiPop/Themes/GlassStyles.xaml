@@ -1,0 +1,106 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        玻璃质感样式（参考 Apple HIG 的毛玻璃/半透明层次）
+        说明：
+        1. 面板底色用 ThemeGlassSurface（0.6–0.85 不透明度），随主题切换；
+        2. 1px 高光描边用 ThemeGlassHighlight（半透明白），模拟玻璃边缘受光；
+        3. 阴影用 DropShadowEffect（WPF 软件渲染），只用在静态卡片上，
+           不用于输入框所在容器，避免打字时逐帧重算阴影造成卡顿；
+        4. 圆角统一走 ThemeRadiusMedium / ThemeRadiusLarge。
+    -->
+
+    <!-- 柔和阴影：ShadowDepth 4 / BlurRadius 16 / Opacity 0.3，落在要求区间内 -->
+    <DropShadowEffect x:Key="GlassShadowEffect"
+                      Color="#000000"
+                      BlurRadius="16"
+                      ShadowDepth="4"
+                      Direction="270"
+                      Opacity="0.3" />
+
+    <!-- 更浅的一层阴影，用于浮窗小卡片 -->
+    <DropShadowEffect x:Key="GlassShadowSoftEffect"
+                      Color="#000000"
+                      BlurRadius="10"
+                      ShadowDepth="2"
+                      Direction="270"
+                      Opacity="0.22" />
+
+    <!-- 玻璃面板：半透明底 + 高光描边 + 大圆角 + 柔和阴影 -->
+    <Style x:Key="GlassPanelStyle" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource ThemeGlassSurface}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource ThemeGlassHighlight}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{DynamicResource ThemeRadiusLarge}" />
+        <Setter Property="Effect" Value="{StaticResource GlassShadowEffect}" />
+    </Style>
+
+    <!-- 玻璃面板（无阴影版本）：用于搜索框等高频重绘区域 -->
+    <Style x:Key="GlassPanelFlatStyle" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource ThemeGlassSurface}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource ThemeGlassHighlight}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{DynamicResource ThemeRadiusLarge}" />
+    </Style>
+
+    <!-- 结果卡片：中等圆角 + 浅阴影 -->
+    <Style x:Key="GlassCardStyle" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource ThemeSurfaceElevated}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource ThemeGlassBorder}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{DynamicResource ThemeRadiusMedium}" />
+        <Setter Property="Effect" Value="{StaticResource GlassShadowSoftEffect}" />
+    </Style>
+
+    <!--
+        玻璃按钮：用 ControlTemplate 自绘，
+        避免 WPF 默认 Button 模板（Win10 下是方角灰底）破坏玻璃观感。
+    -->
+    <Style x:Key="GlassButtonStyle" TargetType="Button">
+        <Setter Property="Foreground" Value="{DynamicResource ThemeTextPrimary}" />
+        <Setter Property="Background" Value="{DynamicResource ThemeGlassSurface}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource ThemeGlassHighlight}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="16,7" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Root"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{DynamicResource ThemeRadiusMedium}"
+                            SnapsToDevicePixels="True">
+                        <ContentPresenter HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"
+                                          Margin="{TemplateBinding Padding}" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <!-- 悬停：叠加一层高光，模拟玻璃受光 -->
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Root" Property="Opacity" Value="0.88" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Root" Property="Opacity" Value="0.72" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Root" Property="Opacity" Value="0.4" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- 主按钮：主题色底 + 玻璃高光边。文字固定白色，
+         不能用 ThemeBackground（glass 主题下它是透明色，文字会消失）。 -->
+    <Style x:Key="GlassPrimaryButtonStyle" TargetType="Button" BasedOn="{StaticResource GlassButtonStyle}">
+        <Setter Property="Background" Value="{DynamicResource ThemeAccent}" />
+        <Setter Property="Foreground" Value="#FFFFFF" />
+    </Style>
+
+</ResourceDictionary>
