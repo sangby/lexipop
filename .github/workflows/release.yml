@@ -1,0 +1,63 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Check tag matches project version
+        shell: pwsh
+        run: |
+          $project = [xml](Get-Content -LiteralPath 'src/LexiPop/LexiPop.csproj' -Raw)
+          $expected = 'v' + $project.Project.PropertyGroup.Version
+          if ($env:GITHUB_REF_NAME -ne $expected) {
+            throw "Tag $env:GITHUB_REF_NAME does not match project version $expected"
+          }
+
+      - name: Publish self-contained Windows app
+        shell: pwsh
+        run: |
+          dotnet.exe publish ./src/LexiPop/LexiPop.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -o ./dist/release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Package and hash
+        shell: pwsh
+        run: |
+          $output = Join-Path $env:GITHUB_WORKSPACE 'dist/release'
+          $dictionary = Join-Path $output 'dict.bin'
+          $symbols = Join-Path $output 'LexiPop.pdb'
+          if (Test-Path -LiteralPath $dictionary) { Remove-Item -LiteralPath $dictionary -ErrorAction Stop }
+          if (Test-Path -LiteralPath $symbols) { Remove-Item -LiteralPath $symbols -ErrorAction Stop }
+          if (-not (Test-Path -LiteralPath (Join-Path $output 'LexiPop.exe'))) { throw 'Missing LexiPop.exe' }
+          if (Test-Path -LiteralPath $dictionary) { throw 'Dictionary data must not be released' }
+          $assetName = "LexiPop-$env:GITHUB_REF_NAME-win-x64.zip"
+          $asset = Join-Path $env:GITHUB_WORKSPACE "dist/$assetName"
+          Compress-Archive -Path (Join-Path $output '*') -DestinationPath $asset -CompressionLevel Optimal
+          $hash = (Get-FileHash -LiteralPath $asset -Algorithm SHA256).Hash.ToLowerInvariant()
+          Set-Content -LiteralPath (Join-Path $env:GITHUB_WORKSPACE 'dist/SHA256SUMS.txt') -Value "$hash  $assetName" -Encoding ascii
+
+      - name: Publish GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $assetName = "LexiPop-$env:GITHUB_REF_NAME-win-x64.zip"
+          $notesFile = "zxt/发布说明-$env:GITHUB_REF_NAME.md"
+          if (-not (Test-Path -LiteralPath $notesFile)) { throw "Missing release notes: $notesFile" }
+          gh.exe release create "$env:GITHUB_REF_NAME" "dist/$assetName" 'dist/SHA256SUMS.txt' --title "LexiPop $env:GITHUB_REF_NAME" --notes-file $notesFile --verify-tag
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
