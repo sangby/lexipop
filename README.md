@@ -48,7 +48,5 @@ pwsh.exe -NoProfile -File ./build.ps1
 - `src/LexiPop/Views/`：设置窗口与划词结果小窗。
 - `src/LexiPop/Services/`：取词、词库、在线翻译、主题与配置。
 - `tools/`：词库构建、签名设置和开发辅助脚本。
-- [开发日志](zxt/开发日志.md)：迭代结果、验证状态与踩坑记录。
-- [技术方案](zxt/词典软件实施方案.md)：设计和实现背景。
 
 `data/`、`dist/`、本地 SDK/依赖缓存、密钥和运行日志均由 `.gitignore` 排除。发布包的内容和已知限制见对应版本的 Release 说明。

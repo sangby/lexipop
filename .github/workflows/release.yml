@@ -57,7 +57,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $assetName = "LexiPop-$env:GITHUB_REF_NAME-win-x64.zip"
-          $notesFile = "zxt/发布说明-$env:GITHUB_REF_NAME.md"
+          $notesFile = ".github/release-notes/$env:GITHUB_REF_NAME.md"
           if (-not (Test-Path -LiteralPath $notesFile)) { throw "Missing release notes: $notesFile" }
           gh.exe release create "$env:GITHUB_REF_NAME" "dist/$assetName" 'dist/SHA256SUMS.txt' --title "LexiPop $env:GITHUB_REF_NAME" --notes-file $notesFile --verify-tag
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
