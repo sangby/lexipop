@@ -7,6 +7,8 @@ using LexiPop.Services;
 
 namespace LexiPop.Views;
 
+public enum LastResultToggleResult { Shown, Hidden, Unavailable }
+
 /// <summary>
 /// 划词浮窗：默认是一个小按钮，点击后展开成查询/翻译卡片。
 /// 文本在弹按钮前已经取好并缓存，点击不会导致选区丢失。
@@ -18,8 +20,6 @@ public partial class SelectionPopup : Window
     private int _anchorX;
     private int _anchorY;
     private (string Source, string Body, (string Text, string Label, string Lcid)[] Speech)? _lastResult;
-
-    public bool HasLastResult => _lastResult is not null;
 
     public SelectionPopup()
     {
@@ -44,10 +44,25 @@ public partial class SelectionPopup : Window
         _ = ShowCardAsync();
     }
 
-    public bool ShowLastResultAt(int screenX, int screenY)
+    public LastResultToggleResult ToggleLastResultAt(int screenX, int screenY)
     {
-        if (_lastResult is not { } result) return false;
+        if (IsVisible && CardState.Visibility == Visibility.Visible)
+        {
+            Hide();
+            return LastResultToggleResult.Hidden;
+        }
 
+        // Hide() 不销毁卡片；翻译尚未完成时也能恢复同一张卡片。
+        if (!IsVisible && CardState.Visibility == Visibility.Visible &&
+            !string.IsNullOrEmpty(SourceText.Text))
+        {
+            PositionAt(screenX, screenY);
+            return LastResultToggleResult.Shown;
+        }
+
+        if (_lastResult is not { } result) return LastResultToggleResult.Unavailable;
+
+        // 若另一次查询仍在后台进行，显示旧结果时让它停止改写当前卡片。
         _requestVersion++;
         ButtonState.Visibility = Visibility.Collapsed;
         CardState.Visibility = Visibility.Visible;
@@ -59,7 +74,7 @@ public partial class SelectionPopup : Window
         SourceScroll.ScrollToTop();
         BodyScroll.ScrollToTop();
         PositionAt(screenX, screenY);
-        return true;
+        return LastResultToggleResult.Shown;
     }
 
     private void PositionAt(int screenX, int screenY)
@@ -118,7 +133,8 @@ public partial class SelectionPopup : Window
         if (entry is not null)
         {
             RenderEntry(entry);
-            RememberResult((entry.Word, "▶ 发音", SpeechService.EnglishLcid));
+            RememberResult(SourceText.Text, BodyText.Text,
+                (entry.Word, "▶ 发音", SpeechService.EnglishLcid));
             PositionAt(_anchorX, _anchorY);
             return;
         }
@@ -126,6 +142,7 @@ public partial class SelectionPopup : Window
         if (!service.TranslationEnabled)
         {
             BodyText.Text = "长句翻译已在设置中关闭。";
+            RememberResult(SourceText.Text, BodyText.Text);
             PositionAt(_anchorX, _anchorY);
             return;
         }
@@ -133,6 +150,7 @@ public partial class SelectionPopup : Window
         if (!service.HasTranslator)
         {
             BodyText.Text = "请在设置中配置模型和 API Key。";
+            RememberResult(SourceText.Text, BodyText.Text);
             PositionAt(_anchorX, _anchorY);
             return;
         }
@@ -140,28 +158,31 @@ public partial class SelectionPopup : Window
         try
         {
             var translation = await service.TranslateAsync(text);
-            if (version != _requestVersion || !IsVisible) return;
+            if (version != _requestVersion) return;
+            RememberResult(text, translation,
+                (text, "▶ 原文", SpeechService.EnglishLcid),
+                (translation, "▶ 译文", SpeechService.ChineseLcid));
             BodyText.Text = translation;
             AddSpeakButton(text, "▶ 原文", SpeechService.EnglishLcid);
             AddSpeakButton(translation, "▶ 译文", SpeechService.ChineseLcid);
-            RememberResult(
-                (text, "▶ 原文", SpeechService.EnglishLcid),
-                (translation, "▶ 译文", SpeechService.ChineseLcid));
-            PositionAt(_anchorX, _anchorY);
+            if (IsVisible) PositionAt(_anchorX, _anchorY);
         }
         catch (Exception ex)
         {
-            if (version == _requestVersion && IsVisible)
+            if (version == _requestVersion)
             {
-                BodyText.Text = "翻译失败：" + ex.Message;
-                PositionAt(_anchorX, _anchorY);
+                var error = "翻译失败：" + ex.Message;
+                RememberResult(text, error);
+                BodyText.Text = error;
+                if (IsVisible) PositionAt(_anchorX, _anchorY);
             }
         }
     }
 
-    private void RememberResult(params (string Text, string Label, string Lcid)[] speech)
+    private void RememberResult(string source, string body,
+        params (string Text, string Label, string Lcid)[] speech)
     {
-        _lastResult = (SourceText.Text, BodyText.Text, speech);
+        _lastResult = (source, body, speech);
     }
 
     private void RenderEntry(DictionaryEntry entry)
@@ -201,7 +222,6 @@ public partial class SelectionPopup : Window
     private void OnCloseClicked(object sender, RoutedEventArgs e)
     {
         e.Handled = true;
-        _requestVersion++;
         Hide();
     }
 
@@ -221,7 +241,6 @@ public partial class SelectionPopup : Window
 
         if (!inside)
         {
-            _requestVersion++;
             Hide();
         }
     }

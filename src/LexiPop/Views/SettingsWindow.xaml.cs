@@ -203,7 +203,7 @@ public partial class SettingsWindow : Window
 
     private void OnSelectionHelp(object sender, RoutedEventArgs e) =>
         MessageBox.Show(this,
-            "在其他程序中拖选文字，鼠标旁会出现「译」按钮；点击后显示本地词典结果或长句译文。也可以按划词热键直接展开结果，关闭后按“再次显示上次结果”热键恢复。",
+            "在其他程序中拖选文字，鼠标旁会出现「译」按钮；点击后显示本地词典结果或长句译文。也可以按划词热键直接展开结果。结果小窗快捷键可隐藏小窗，再按一次可恢复上次结果。",
             "划词翻译", MessageBoxButton.OK, MessageBoxImage.Information);
 
     private void OnLongTextHelp(object sender, RoutedEventArgs e) =>

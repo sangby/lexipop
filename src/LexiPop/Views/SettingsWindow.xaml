@@ -193,9 +193,11 @@
                     </StackPanel>
 
                     <TextBlock Text="快捷键" Style="{StaticResource GroupTitle}" />
-                    <TextBlock Text="划词翻译（点击输入框后按下组合键）" Style="{StaticResource FieldLabel}" />
+                    <TextBlock Text="设置方法：点输入框，按组合键，再点“保存”。使用时无需打开设置。"
+                               TextWrapping="Wrap" Margin="0,0,0,4" />
+                    <TextBlock Text="划词翻译" Style="{StaticResource FieldLabel}" />
                     <TextBox x:Name="TranslateHotkeyBox" PreviewKeyDown="OnHotkeyKeyDown" />
-                    <TextBlock Text="再次显示上次结果（点击输入框后按下组合键）" Style="{StaticResource FieldLabel}" />
+                    <TextBlock Text="结果小窗（按一次隐藏，再按一次恢复）" Style="{StaticResource FieldLabel}" />
                     <TextBox x:Name="RecallHotkeyBox" PreviewKeyDown="OnHotkeyKeyDown" />
 
                     <TextBlock Text="翻译" Style="{StaticResource GroupTitle}" />

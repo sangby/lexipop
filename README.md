@@ -6,7 +6,7 @@ Windows 划词翻译工具。后台常驻托盘，拖选文字后显示「译」
 
 ## 使用方式
 
-- 拖选文字后，点击鼠标旁的「译」按钮；或按 `Ctrl+Alt+S`，直接在鼠标旁打开结果卡片。卡片关闭后按 `Ctrl+Alt+R` 可再次显示上一次完成的查询结果；两个快捷键都能在设置页修改。
+- 拖选文字后，点击鼠标旁的「译」按钮；或按 `Ctrl+Alt+S`，直接在鼠标旁打开结果卡片。按 `Ctrl+Alt+R` 可隐藏正在显示的结果小窗；点击别处关闭后，或再次按该快捷键，可恢复上次结果。两个快捷键都能在设置页修改，修改后点击「保存」才会生效。
 - 单词先查本地 `dict.bin` 词库。词库未命中的文本可由配置的模型提供方翻译。
 - 点击托盘图标或右键选择「设置」来调整划词、长句翻译、模型与主题；再次启动程序也会打开设置。
 - 可选 DeepSeek、OpenAI、OpenRouter 或自定义 OpenAI 兼容服务。选定提供方会填入端点；「抓取模型」从其 `/models` 接口取得模型 ID。模型列表可能包含不支持文本聊天的模型，需自行选择兼容 Chat Completions 的模型。
@@ -35,7 +35,7 @@ pwsh.exe -NoProfile -File ./tools/setup-signing-cert.ps1
 
 产物：`src\LexiPop\bin\Release\net10.0-windows\LexiPop.exe`
 
-本次迭代的可运行目录另存于 `dist\LexiPop-iteration-2\`，从该目录启动 `LexiPop.exe` 即可。该目录需要本机安装 .NET 10 Desktop Runtime。
+最新修正版的可运行目录另存于 `dist\LexiPop-iteration-3\`，从该目录启动 `LexiPop.exe` 即可。该目录需要本机安装 .NET 10 Desktop Runtime。
 
 ## 代码签名
 

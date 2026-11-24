@@ -144,7 +144,7 @@ public partial class App : Application
 
             _tray?.ShowBalloon(
                 "LexiPop 已启动",
-                $"拖选文字后点「译」；按 {settings.HotkeyTranslate} 翻译，按 {settings.HotkeyRecall} 恢复上次结果。" );
+                $"拖选文字后点「译」；按 {settings.HotkeyTranslate} 翻译，按 {settings.HotkeyRecall} 隐藏或恢复结果小窗。" );
             Log("startup complete");
 
             // 带参数启动可直接预览浮窗结果，便于调试与外部程序调用。
@@ -243,6 +243,16 @@ public partial class App : Application
         ThemeService.Apply(settings.ThemeId);
         RegisterHotkeys(settings);
         ApplySelectionPopup(settings.EnableSelectionPopup);
+        if (settings.EnableSelectionPopup && (!_translateRegistered || !_recallRegistered))
+        {
+            var unavailable = new List<string>();
+            if (!_translateRegistered) unavailable.Add($"划词翻译：{settings.HotkeyTranslate}");
+            if (!_recallRegistered) unavailable.Add($"结果小窗：{settings.HotkeyRecall}");
+            MessageBox.Show(
+                "以下快捷键注册失败，可能已被其他程序占用：\n" + string.Join("\n", unavailable) +
+                "\n\n请在设置中换一个组合键。",
+                "LexiPop 快捷键不可用", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
         Log("settings applied");
     }
 
@@ -288,7 +298,10 @@ public partial class App : Application
         if (id == MessageWindow.HotkeyRecall)
         {
             NativeMethods.GetCursorPos(out var lastCursor);
-            if (_selectionPopup?.ShowLastResultAt(lastCursor.X, lastCursor.Y) != true)
+            var result = _selectionPopup?.ToggleLastResultAt(lastCursor.X, lastCursor.Y)
+                         ?? LastResultToggleResult.Unavailable;
+            Log($"recall hotkey: {result}");
+            if (result == LastResultToggleResult.Unavailable)
                 _tray?.ShowBalloon("暂无上次结果", "先完成一次划词查询或翻译。");
             return;
         }
