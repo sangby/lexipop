@@ -5,19 +5,15 @@ namespace LexiPop.Services;
 
 /// <summary>
 /// 本地配置：%LOCALAPPDATA%\LexiPop\settings.json
-/// 环境变量 LEXIPOP_DEEPSEEK_KEY 优先级高于配置文件，避免密钥写进文件被误提交。
+/// 环境变量 LEXIPOP_API_KEY 优先级高于配置文件。
 /// </summary>
 public sealed class AppSettings
 {
-    public string DeepSeekApiKey { get; set; } = string.Empty;
-
-    public string DeepSeekModel { get; set; } = "deepseek-flash";
-
-    /// <summary>聊天补全端点，默认 DeepSeek 官方；可换成兼容 OpenAI 格式的任意服务。</summary>
-    public string DeepSeekEndpoint { get; set; } = "https://api.deepseek.com/chat/completions";
-
-    /// <summary>唤出窗口的全局热键，格式如 "Ctrl+Alt+D"。</summary>
-    public string HotkeyToggle { get; set; } = "Ctrl+Alt+D";
+    public string ProviderId { get; set; } = "deepseek";
+    public string ApiKey { get; set; } = string.Empty;
+    public string Model { get; set; } = "deepseek-flash";
+    public string Endpoint { get; set; } = "https://api.deepseek.com/chat/completions";
+    public string ModelListEndpoint { get; set; } = "https://api.deepseek.com/models";
 
     /// <summary>划词翻译的全局热键，格式如 "Ctrl+Alt+S"。</summary>
     public string HotkeyTranslate { get; set; } = "Ctrl+Alt+S";
@@ -26,8 +22,6 @@ public sealed class AppSettings
 
     public bool EnableSelectionPopup { get; set; } = true;
 
-    public bool ShowWindowOnStartup { get; set; } = true;
-
     public string SpeechEnglishVoice { get; set; } = "Microsoft Zira Desktop";
 
     public string SpeechChineseVoice { get; set; } = "Microsoft Huihui Desktop";
@@ -35,11 +29,8 @@ public sealed class AppSettings
     /// <summary>语速，-10 到 10，0 为正常。</summary>
     public int SpeechRate { get; set; }
 
-    /// <summary>界面主题预设 id：graphite / midnight / amber / violet / light。</summary>
-    public string ThemeId { get; set; } = "graphite";
-
-    /// <summary>词库路径；为空表示使用程序目录下的 dict.bin。</summary>
-    public string DictionaryPath { get; set; } = string.Empty;
+    /// <summary>内置主题 id 或 custom- 开头的 CSS 主题 id。</summary>
+    public string ThemeId { get; set; } = "light";
 
     public static string DataDirectory => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -53,8 +44,7 @@ public sealed class AppSettings
         {
             if (File.Exists(FilePath))
             {
-                var settings = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(FilePath));
-                if (settings is not null) return settings;
+                return ParseJson(File.ReadAllText(FilePath));
             }
         }
         catch
@@ -63,6 +53,25 @@ public sealed class AppSettings
         }
 
         return new AppSettings();
+    }
+
+    internal static AppSettings ParseJson(string json)
+    {
+        var settings = JsonSerializer.Deserialize<AppSettings>(json) ?? new AppSettings();
+
+        // 从旧版 DeepSeek 专用字段迁移；保存后只写入通用字段。
+        using var document = JsonDocument.Parse(json);
+        var root = document.RootElement;
+        if (!root.TryGetProperty(nameof(ApiKey), out _) &&
+            root.TryGetProperty("DeepSeekApiKey", out var key))
+            settings.ApiKey = key.GetString() ?? string.Empty;
+        if (!root.TryGetProperty(nameof(Model), out _) &&
+            root.TryGetProperty("DeepSeekModel", out var model))
+            settings.Model = model.GetString() ?? settings.Model;
+        if (!root.TryGetProperty(nameof(Endpoint), out _) &&
+            root.TryGetProperty("DeepSeekEndpoint", out var endpoint))
+            settings.Endpoint = endpoint.GetString() ?? settings.Endpoint;
+        return settings;
     }
 
     public static bool TrySave(AppSettings settings)
@@ -82,10 +91,15 @@ public sealed class AppSettings
     }
 
     /// <summary>环境变量优先，其次配置文件。</summary>
-    public string ResolveDeepSeekKey()
+    public string ResolveApiKey()
     {
+        var generic = Environment.GetEnvironmentVariable("LEXIPOP_API_KEY");
+        if (!string.IsNullOrWhiteSpace(generic)) return generic.Trim();
+
+        // 兼容旧版 DeepSeek 环境变量。
         var fromEnvironment = Environment.GetEnvironmentVariable("LEXIPOP_DEEPSEEK_KEY");
-        if (!string.IsNullOrWhiteSpace(fromEnvironment)) return fromEnvironment.Trim();
-        return DeepSeekApiKey.Trim();
+        if (ProviderId == "deepseek" && !string.IsNullOrWhiteSpace(fromEnvironment))
+            return fromEnvironment.Trim();
+        return ApiKey.Trim();
     }
 }

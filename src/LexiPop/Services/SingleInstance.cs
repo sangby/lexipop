@@ -3,11 +3,12 @@ using LexiPop.Interop;
 namespace LexiPop.Services;
 
 /// <summary>
-/// 单实例控制：第一次启动持有 Mutex；后续启动广播一条注册窗口消息，让已有实例唤出窗口。
+/// 单实例控制：第一次启动持有 Mutex；后续启动通知已有实例打开设置。
 /// </summary>
 public static class SingleInstance
 {
     private const string MutexName = @"Local\LexiPop.SingleInstance";
+    // 保留旧广播消息名，使已运行的旧版实例仍能收到第二次启动通知。
     private const string ShowMessageName = "LexiPop.ShowWindow";
 
     public static readonly int ShowMessageId = NativeMethods.RegisterWindowMessage(ShowMessageName);

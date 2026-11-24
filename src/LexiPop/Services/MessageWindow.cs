@@ -5,11 +5,10 @@ namespace LexiPop.Services;
 
 /// <summary>
 /// 一个不可见的顶层窗口，专门接收全局热键、托盘回调与单实例广播消息。
-/// 独立于主窗口，主窗口隐藏时消息循环照常工作。
+/// 不依赖可见窗口，后台运行时消息循环照常工作。
 /// </summary>
 public sealed class MessageWindow : IDisposable
 {
-    public const int HotkeyToggle = 1;
     public const int HotkeyTranslate = 2;
 
     private readonly HwndSource _source;
@@ -23,7 +22,7 @@ public sealed class MessageWindow : IDisposable
     /// <summary>托盘图标被点击，参数是原始鼠标消息（WM_LBUTTONDBLCLK / WM_CONTEXTMENU 等）。</summary>
     public event Action<int>? TrayMouseMessage;
 
-    /// <summary>另一个实例启动后请求唤出窗口。</summary>
+    /// <summary>另一个实例启动后请求打开设置。</summary>
     public event Action? ShowRequested;
 
     public MessageWindow()
@@ -73,7 +72,6 @@ public sealed class MessageWindow : IDisposable
         if (_disposed) return;
         _disposed = true;
 
-        NativeMethods.UnregisterHotKey(Handle, HotkeyToggle);
         NativeMethods.UnregisterHotKey(Handle, HotkeyTranslate);
 
         _source.RemoveHook(WndProc);

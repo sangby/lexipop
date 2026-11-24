@@ -16,10 +16,6 @@ public sealed class TrayService : IDisposable
 {
     private const uint TrayIconId = 1;
 
-    private const int MenuLookup = 1001;
-    private const int MenuAutoStart = 1002;
-    private const int MenuExit = 1003;
-
     private const int WM_LBUTTONUP = 0x0202;
     private const int WM_LBUTTONDBLCLK = 0x0203;
     private const int WM_RBUTTONUP = 0x0205;
@@ -34,7 +30,6 @@ public sealed class TrayService : IDisposable
     private bool _ownsIcon;
     private bool _disposed;
 
-    public event Action? ShowRequested;
     public event Action? SettingsRequested;
     public event Action? ExitRequested;
 
@@ -95,7 +90,7 @@ public sealed class TrayService : IDisposable
         {
             case WM_LBUTTONUP:
             case WM_LBUTTONDBLCLK:
-                ShowRequested?.Invoke();
+                SettingsRequested?.Invoke();
                 break;
 
             case WM_RBUTTONUP:
@@ -108,10 +103,6 @@ public sealed class TrayService : IDisposable
     private void ShowContextMenu()
     {
         var menu = new ContextMenu();
-
-        var lookup = new MenuItem { Header = "查词" };
-        lookup.Click += (_, _) => ShowRequested?.Invoke();
-        menu.Items.Add(lookup);
 
         var settings = new MenuItem { Header = "设置" };
         settings.Click += (_, _) => SettingsRequested?.Invoke();

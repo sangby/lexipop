@@ -12,11 +12,9 @@ public partial class App : Application
 {
     private MessageWindow? _messageWindow;
     private TrayService? _tray;
-    private MainWindow? _mainWindow;
     private MouseHook? _mouseHook;
     private SelectionPopup? _selectionPopup;
     private SettingsWindow? _settingsWindow;
-    private bool _toggleRegistered;
     private bool _translateRegistered;
     private bool _ownsMutex;
 
@@ -67,11 +65,8 @@ public partial class App : Application
             _messageWindow = new MessageWindow();
             Log("message window created");
 
-            _mainWindow = new MainWindow();
-            Log("main window created");
-
             _messageWindow.HotkeyPressed += OnHotkeyPressed;
-            _messageWindow.ShowRequested += ShowWindow;
+            _messageWindow.ShowRequested += OpenSettings;
 
             var settings = AppSettings.Load();
             if (!File.Exists(AppSettings.FilePath) && AppSettings.TrySave(settings))
@@ -82,12 +77,11 @@ public partial class App : Application
             ThemeService.Apply(settings.ThemeId);
             Log($"theme: {settings.ThemeId}");
 
-            Log($"settings: deepseek key configured={!string.IsNullOrEmpty(settings.ResolveDeepSeekKey())}");
+            Log($"settings: provider={settings.ProviderId} key configured={!string.IsNullOrEmpty(settings.ResolveApiKey())}");
 
             try
             {
                 _tray = new TrayService(_messageWindow!, Log);
-                _tray.ShowRequested += ShowWindow;
                 _tray.SettingsRequested += OpenSettings;
                 _tray.ExitRequested += () => Shutdown(0);
                 Log($"tray ready: registered={_tray.IsRegistered}");
@@ -99,13 +93,10 @@ public partial class App : Application
 
             RegisterHotkeys(settings);
 
-            if (!_toggleRegistered || !_translateRegistered)
+            if (settings.EnableSelectionPopup && !_translateRegistered)
             {
                 MessageBox.Show(
-                    "部分全局热键被其他程序占用：\n" +
-                    $"  {settings.HotkeyToggle}：{(_toggleRegistered ? "可用" : "被占用")}\n" +
-                    $"  {settings.HotkeyTranslate}：{(_translateRegistered ? "可用" : "被占用")}\n\n" +
-                    "可在托盘右键菜单「设置」里修改。",
+                    $"划词热键 {settings.HotkeyTranslate} 被其他程序占用，可在托盘「设置」中修改。",
                     "LexiPop",
                     MessageBoxButton.OK,
                     MessageBoxImage.Warning);
@@ -116,19 +107,15 @@ public partial class App : Application
 
             _tray?.ShowBalloon(
                 "LexiPop 已启动",
-                $"{settings.HotkeyToggle} 唤出，{settings.HotkeyTranslate} 划词翻译。");
+                $"拖选文字后点「译」，或按 {settings.HotkeyTranslate} 直接翻译。" );
             Log("startup complete");
 
-            // 带参数启动时直接查询该词（便于测试）；否则按设置决定是否显示窗口。
+            // 带参数启动可直接预览浮窗结果，便于调试与外部程序调用。
             if (e.Args.Length > 0 && !string.IsNullOrWhiteSpace(e.Args[0]))
             {
-                Log($"startup query: {e.Args[0]}");
-                _mainWindow.ShowAndFocus(e.Args[0], autoQuery: true);
-            }
-            else if (settings.ShowWindowOnStartup)
-            {
-                _mainWindow.ShowOnStartup();
-                Log("startup window shown");
+                NativeMethods.GetCursorPos(out var cursor);
+                _selectionPopup ??= new SelectionPopup();
+                _selectionPopup.ShowExpandedAt(cursor.X, cursor.Y, e.Args[0]);
             }
         }
         catch (Exception ex)
@@ -145,28 +132,21 @@ public partial class App : Application
         }
     }
 
-    private void ShowWindow()
-    {
-        _mainWindow?.ShowAndFocus(null);
-    }
-
     private void RegisterHotkeys(AppSettings settings)
     {
-        _messageWindow?.UnregisterHotkey(MessageWindow.HotkeyToggle);
         _messageWindow?.UnregisterHotkey(MessageWindow.HotkeyTranslate);
-
-        var toggle = HotkeyParser.Parse(settings.HotkeyToggle)
-                     ?? (NativeMethods.MOD_CONTROL | NativeMethods.MOD_ALT, 0x44u);
+        if (!settings.EnableSelectionPopup)
+        {
+            _translateRegistered = false;
+            return;
+        }
         var translate = HotkeyParser.Parse(settings.HotkeyTranslate)
                         ?? (NativeMethods.MOD_CONTROL | NativeMethods.MOD_ALT, 0x53u);
 
-        _toggleRegistered = _messageWindow?.RegisterHotkey(
-            MessageWindow.HotkeyToggle, toggle.Item1, toggle.Item2) ?? false;
         _translateRegistered = _messageWindow?.RegisterHotkey(
             MessageWindow.HotkeyTranslate, translate.Item1, translate.Item2) ?? false;
 
-        Log($"hotkeys: toggle={_toggleRegistered} ({settings.HotkeyToggle}), " +
-            $"translate={_translateRegistered} ({settings.HotkeyTranslate})");
+        Log($"hotkey: translate={_translateRegistered} ({settings.HotkeyTranslate})");
     }
 
     private void ApplySelectionPopup(bool enabled)
@@ -213,9 +193,10 @@ public partial class App : Application
     {
         var settings = AppSettings.Load();
 
-        // 关键：重建翻译器，否则设置页填的 Key / 端点 / 模型不生效（要重启才行）
+        // 重建翻译器，立即应用提供方、Key、端点和模型。
         LookupService.Instance.Reload();
 
+        ThemeService.Apply(settings.ThemeId);
         RegisterHotkeys(settings);
         ApplySelectionPopup(settings.EnableSelectionPopup);
         Log("settings applied");
@@ -259,27 +240,21 @@ public partial class App : Application
 
     private void OnHotkeyPressed(int id)
     {
-        // 再按一次同一个热键：窗口可见且是活动窗口 → 收起。
-        if (_mainWindow is { IsVisible: true } && _mainWindow.IsActive)
-        {
-            _mainWindow.HideWindow();
-            Log($"hotkey {id} -> hide");
-            return;
-        }
+        if (id != MessageWindow.HotkeyTranslate) return;
 
-        // 先取词，再显示窗口：窗口一显示就会抢走焦点，之后 UIA 读不到选区。
+        // 先取词，再显示浮窗：浮窗出现后会改变 UIA 的焦点。
         var (selected, diagnostics) = CaptureSelection();
         Log($"hotkey {id} -> {diagnostics}");
 
-        if (id == MessageWindow.HotkeyTranslate)
+        if (string.IsNullOrWhiteSpace(selected))
         {
-            var hasSelection = !string.IsNullOrWhiteSpace(selected);
-            _mainWindow?.ShowAndFocus(selected, autoQuery: hasSelection);
+            _tray?.ShowBalloon("未找到选中文本", "先选中文字，再按划词翻译热键。");
+            return;
         }
-        else
-        {
-            _mainWindow?.ShowAndFocus(selected);
-        }
+
+        NativeMethods.GetCursorPos(out var cursor);
+        _selectionPopup ??= new SelectionPopup();
+        _selectionPopup.ShowExpandedAt(cursor.X, cursor.Y, selected);
     }
 
     /// <summary>

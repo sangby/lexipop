@@ -14,6 +14,9 @@ namespace LexiPop.Views;
 public partial class SelectionPopup : Window
 {
     private string _selected = string.Empty;
+    private int _requestVersion;
+    private int _anchorX;
+    private int _anchorY;
 
     public SelectionPopup()
     {
@@ -23,13 +26,39 @@ public partial class SelectionPopup : Window
     public void ShowAt(int screenX, int screenY, string text)
     {
         _selected = text;
+        _requestVersion++;
         ShowButtonState();
+        PositionAt(screenX, screenY);
+    }
 
+    public void ShowExpandedAt(int screenX, int screenY, string text)
+    {
+        _selected = text;
+        _requestVersion++;
+        ButtonState.Visibility = Visibility.Collapsed;
+        CardState.Visibility = Visibility.Visible;
+        PositionAt(screenX, screenY);
+        _ = ShowCardAsync();
+    }
+
+    private void PositionAt(int screenX, int screenY)
+    {
+        _anchorX = screenX;
+        _anchorY = screenY;
         var dpi = VisualTreeHelper.GetDpi(this);
         Left = screenX / dpi.DpiScaleX + 8;
         Top = screenY / dpi.DpiScaleY + 8;
+        if (!IsVisible) Show();
+        UpdateLayout();
 
-        Show();
+        var bounds = System.Windows.Forms.Screen.FromPoint(
+            new System.Drawing.Point(screenX, screenY)).WorkingArea;
+        Left = Math.Clamp(Left, bounds.Left / dpi.DpiScaleX,
+            Math.Max(bounds.Left / dpi.DpiScaleX,
+                bounds.Right / dpi.DpiScaleX - ActualWidth));
+        Top = Math.Clamp(Top, bounds.Top / dpi.DpiScaleY,
+            Math.Max(bounds.Top / dpi.DpiScaleY,
+                bounds.Bottom / dpi.DpiScaleY - ActualHeight));
     }
 
     private void ShowButtonState()
@@ -46,38 +75,56 @@ public partial class SelectionPopup : Window
 
     private async Task ShowCardAsync()
     {
+        var text = _selected;
+        var version = _requestVersion;
         ButtonState.Visibility = Visibility.Collapsed;
         CardState.Visibility = Visibility.Visible;
 
-        SourceText.Text = _selected;
+        SourceText.Text = text;
         BodyText.Text = "查询中…";
         SpeakPanel.Children.Clear();
+        PositionAt(_anchorX, _anchorY);
 
         var service = LookupService.Instance;
 
-        var entry = service.Lookup(_selected);
+        var entry = service.Lookup(text);
         if (entry is not null)
         {
             RenderEntry(entry);
+            PositionAt(_anchorX, _anchorY);
+            return;
+        }
+
+        if (!service.TranslationEnabled)
+        {
+            BodyText.Text = "长句翻译已在设置中关闭。";
+            PositionAt(_anchorX, _anchorY);
             return;
         }
 
         if (!service.HasTranslator)
         {
-            BodyText.Text = "未配置 API key，无法翻译。";
+            BodyText.Text = "请在设置中配置模型和 API Key。";
+            PositionAt(_anchorX, _anchorY);
             return;
         }
 
         try
         {
-            var translation = await service.TranslateAsync(_selected);
+            var translation = await service.TranslateAsync(text);
+            if (version != _requestVersion || !IsVisible) return;
             BodyText.Text = translation;
-            AddSpeakButton(_selected, "▶ 原文", SpeechService.EnglishLcid);
+            AddSpeakButton(text, "▶ 原文", SpeechService.EnglishLcid);
             AddSpeakButton(translation, "▶ 译文", SpeechService.ChineseLcid);
+            PositionAt(_anchorX, _anchorY);
         }
         catch (Exception ex)
         {
-            BodyText.Text = "翻译失败：" + ex.Message;
+            if (version == _requestVersion && IsVisible)
+            {
+                BodyText.Text = "翻译失败：" + ex.Message;
+                PositionAt(_anchorX, _anchorY);
+            }
         }
     }
 
@@ -118,6 +165,7 @@ public partial class SelectionPopup : Window
     private void OnCloseClicked(object sender, MouseButtonEventArgs e)
     {
         e.Handled = true;
+        _requestVersion++;
         Hide();
     }
 
@@ -135,9 +183,10 @@ public partial class SelectionPopup : Window
         var inside = screenX >= left && screenX <= right
                   && screenY >= top && screenY <= bottom;
 
-        if (!inside) Hide();
+        if (!inside)
+        {
+            _requestVersion++;
+            Hide();
+        }
     }
-
-    private static SolidColorBrush Solid(string hex)
-        => (SolidColorBrush)new BrushConverter().ConvertFromString(hex)!;
 }

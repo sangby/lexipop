@@ -16,12 +16,16 @@ public partial class SettingsWindow : Window
     public event Action? SettingsApplied;
 
     private readonly string _originalThemeId;
+    private string? _editingThemeId;
+    private bool _loading;
+    private bool _savedSettings;
 
     public SettingsWindow()
     {
         InitializeComponent();
         _originalThemeId = ThemeService.Current.Id;
         SourceInitialized += OnSourceInitialized;
+        Closed += OnWindowClosed;
         LoadSettings();
     }
 
@@ -50,7 +54,11 @@ public partial class SettingsWindow : Window
 
         if (ThemeService.Current.IsGlass)
         {
-            WindowEffects.TryEnableAcrylic(hwnd, 0x80FFFFFF);
+            var color = (System.Windows.Media.Color)
+                System.Windows.Media.ColorConverter.ConvertFromString(ThemeService.Current.GlassSurface);
+            var tint = (uint)color.A << 24 | (uint)color.B << 16 |
+                       (uint)color.G << 8 | color.R;
+            WindowEffects.TryEnableAcrylic(hwnd, tint);
         }
         else
         {
@@ -60,17 +68,19 @@ public partial class SettingsWindow : Window
 
     private void LoadSettings()
     {
+        _loading = true;
         var settings = AppSettings.Load();
 
         AutoStartCheck.IsChecked = AutoStart.IsEnabled();
-        ShowOnStartupCheck.IsChecked = settings.ShowWindowOnStartup;
-
-        ToggleHotkeyBox.Text = settings.HotkeyToggle;
         TranslateHotkeyBox.Text = settings.HotkeyTranslate;
 
-        ApiKeyBox.Text = settings.DeepSeekApiKey;
-        EndpointBox.Text = settings.DeepSeekEndpoint;
-        ModelBox.Text = settings.DeepSeekModel;
+        ProviderCombo.ItemsSource = ModelProviders.All;
+        ProviderCombo.DisplayMemberPath = "Name";
+        ProviderCombo.SelectedItem = ModelProviders.Find(settings.ProviderId);
+        ApiKeyBox.Text = settings.ApiKey;
+        EndpointBox.Text = settings.Endpoint;
+        ModelListEndpointBox.Text = settings.ModelListEndpoint;
+        ModelCombo.Text = settings.Model;
 
         EnableTranslationCheck.IsChecked = settings.EnableTranslation;
         EnablePopupCheck.IsChecked = settings.EnableSelectionPopup;
@@ -80,20 +90,125 @@ public partial class SettingsWindow : Window
             ? $"词库：{count:N0} 条"
             : "词库：未加载（dict.bin 不存在）";
 
-        ThemeCombo.ItemsSource = ThemeService.Presets;
-        ThemeCombo.DisplayMemberPath = "Name";
+        RefreshThemes();
         ThemeCombo.SelectedItem =
-            ThemeService.Presets.FirstOrDefault(p => p.Id == settings.ThemeId)
+            ThemeService.AvailableThemes().FirstOrDefault(p => p.Id == settings.ThemeId)
             ?? ThemeService.Presets[0];
+        _loading = false;
+    }
+
+    private void RefreshThemes()
+    {
+        ThemeCombo.ItemsSource = ThemeService.AvailableThemes();
+        ThemeCombo.DisplayMemberPath = "Name";
     }
 
     private void OnThemeChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (ThemeCombo.SelectedItem is ThemePreset preset)
+        if (!_loading && ThemeCombo.SelectedItem is ThemePreset preset)
         {
             ThemeService.Apply(preset.Id);
         }
     }
+
+    private void OnNewTheme(object sender, RoutedEventArgs e)
+    {
+        var source = ThemeCombo.SelectedItem as ThemePreset ?? ThemeService.Presets[0];
+        _editingThemeId = null;
+        ThemeCssBox.Text = CustomThemeService.CreateTemplate(source);
+        ThemeEditor.Visibility = Visibility.Visible;
+        ThemeCssBox.Focus();
+    }
+
+    private void OnEditTheme(object sender, RoutedEventArgs e)
+    {
+        if (ThemeCombo.SelectedItem is not ThemePreset { Id: var id } ||
+            !id.StartsWith("custom-", StringComparison.Ordinal))
+        {
+            MessageBox.Show(this, "内置主题不可修改；可以先点「新建主题」复制当前配色。",
+                "LexiPop", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        _editingThemeId = id;
+        ThemeCssBox.Text = CustomThemeService.ReadCss(id) ?? string.Empty;
+        ThemeEditor.Visibility = Visibility.Visible;
+        ThemeCssBox.Focus();
+    }
+
+    private void OnSaveTheme(object sender, RoutedEventArgs e) => SaveTheme();
+
+    private bool SaveTheme()
+    {
+        if (!CustomThemeService.TrySave(ThemeCssBox.Text, _editingThemeId,
+                out var theme, out var error))
+        {
+            MessageBox.Show(this, error, "CSS 主题", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return false;
+        }
+
+        _editingThemeId = theme!.Id;
+        RefreshThemes();
+        ThemeCombo.SelectedItem = ThemeService.AvailableThemes().First(p => p.Id == theme.Id);
+        ThemeService.Apply(theme.Id);
+        ThemeStatus.Text = $"主题已保存：{CustomThemeService.DirectoryPath}";
+        return true;
+    }
+
+    private void OnCloseThemeEditor(object sender, RoutedEventArgs e) =>
+        ThemeEditor.Visibility = Visibility.Collapsed;
+
+    private void OnProviderChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loading || ProviderCombo.SelectedItem is not ModelProvider provider) return;
+        EndpointBox.Text = provider.ChatEndpoint;
+        ModelListEndpointBox.Text = provider.ModelsEndpoint;
+        ModelCombo.ItemsSource = null;
+        ModelCombo.Text = string.Empty;
+        ApiKeyBox.Text = string.Empty;
+        ModelFetchStatus.Text = provider.Id == "custom"
+            ? "请填写兼容 Chat Completions 的接口和模型列表网址。"
+            : "需要时输入该提供方的 API Key，再抓取模型。";
+    }
+
+    private async void OnFetchModels(object sender, RoutedEventArgs e)
+    {
+        var previous = ModelCombo.Text.Trim();
+        FetchModelsButton.IsEnabled = false;
+        ModelFetchStatus.Text = "正在抓取模型…";
+        try
+        {
+            var key = ApiKeyBox.Text.Trim();
+            var selectedProvider = (ProviderCombo.SelectedItem as ModelProvider)?.Id;
+            var saved = AppSettings.Load();
+            if (key.Length == 0 && selectedProvider == saved.ProviderId)
+                key = saved.ResolveApiKey();
+
+            var models = await ModelProviders.FetchModelsAsync(
+                ModelListEndpointBox.Text.Trim(), key);
+            ModelCombo.ItemsSource = models;
+            ModelCombo.Text = previous;
+            ModelFetchStatus.Text = $"已获取 {models.Count} 个模型；请选择支持文本聊天的模型。";
+        }
+        catch (Exception ex)
+        {
+            ModelFetchStatus.Text = ex.Message;
+        }
+        finally
+        {
+            FetchModelsButton.IsEnabled = true;
+        }
+    }
+
+    private void OnSelectionHelp(object sender, RoutedEventArgs e) =>
+        MessageBox.Show(this,
+            "在其他程序中拖选文字，鼠标旁会出现「译」按钮；点击后显示本地词典结果或长句译文。也可以按划词热键，直接在鼠标附近展开结果。",
+            "划词翻译", MessageBoxButton.OK, MessageBoxImage.Information);
+
+    private void OnLongTextHelp(object sender, RoutedEventArgs e) =>
+        MessageBox.Show(this,
+            "单词优先查本地词典；词典未命中的文本会发送给选定的模型提供方翻译。关闭此项后仍可离线查词，长句不会发送到接口。",
+            "长句翻译", MessageBoxButton.OK, MessageBoxImage.Information);
 
     private void OnHotkeyKeyDown(object sender, KeyEventArgs e)
     {
@@ -123,17 +238,34 @@ public partial class SettingsWindow : Window
 
     private void OnSave(object sender, RoutedEventArgs e)
     {
+        if (EnableTranslationCheck.IsChecked == true &&
+            !ModelProviders.IsValidEndpoint(EndpointBox.Text.Trim()))
+        {
+            MessageBox.Show(this, "请填写完整的聊天接口端点网址。", "LexiPop",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        if (EnableTranslationCheck.IsChecked == true && string.IsNullOrWhiteSpace(ModelCombo.Text))
+        {
+            MessageBox.Show(this, "启用长句翻译时，请选择或输入模型 ID。", "LexiPop",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        if (ThemeEditor.Visibility == Visibility.Visible && !SaveTheme()) return;
+
         var settings = AppSettings.Load();
 
-        settings.ShowWindowOnStartup = ShowOnStartupCheck.IsChecked == true;
-        settings.HotkeyToggle = ToggleHotkeyBox.Text.Trim();
         settings.HotkeyTranslate = TranslateHotkeyBox.Text.Trim();
-        settings.DeepSeekApiKey = ApiKeyBox.Text.Trim();
-        settings.DeepSeekEndpoint = EndpointBox.Text.Trim();
-        settings.DeepSeekModel = ModelBox.Text.Trim();
+        settings.ProviderId = (ProviderCombo.SelectedItem as ModelProvider)?.Id ?? "deepseek";
+        settings.ApiKey = ApiKeyBox.Text.Trim();
+        settings.Endpoint = EndpointBox.Text.Trim();
+        settings.ModelListEndpoint = ModelListEndpointBox.Text.Trim();
+        settings.Model = ModelCombo.Text.Trim();
         settings.EnableTranslation = EnableTranslationCheck.IsChecked == true;
         settings.EnableSelectionPopup = EnablePopupCheck.IsChecked == true;
-        settings.ThemeId = (ThemeCombo.SelectedItem as ThemePreset)?.Id ?? "graphite";
+        settings.ThemeId = (ThemeCombo.SelectedItem as ThemePreset)?.Id ?? "light";
 
         if (!AppSettings.TrySave(settings))
         {
@@ -148,6 +280,7 @@ public partial class SettingsWindow : Window
         }
 
         SettingsApplied?.Invoke();
+        _savedSettings = true;
         Close();
     }
 
@@ -160,16 +293,18 @@ public partial class SettingsWindow : Window
 
     private void OnCancel(object sender, RoutedEventArgs e)
     {
-        ThemeService.Apply(_originalThemeId);
-        ThemeService.Changed -= OnThemeServiceChanged;
         Close();
     }
 
     private void OnClose(object sender, MouseButtonEventArgs e)
     {
-        ThemeService.Apply(_originalThemeId);
-        ThemeService.Changed -= OnThemeServiceChanged;
         Close();
+    }
+
+    private void OnWindowClosed(object? sender, EventArgs e)
+    {
+        ThemeService.Changed -= OnThemeServiceChanged;
+        if (!_savedSettings) ThemeService.Apply(_originalThemeId);
     }
 
     private void OnDrag(object sender, MouseButtonEventArgs e)

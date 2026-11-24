@@ -5,6 +5,7 @@ Set shell = CreateObject("WScript.Shell")
 
 base = fso.GetParentFolderName(WScript.ScriptFullName)
 dotnet = base & "\.dotnet\dotnet.exe"
+If Not fso.FileExists(dotnet) Then dotnet = "dotnet"
 dll = base & "\src\LexiPop\bin\Release\net10.0-windows\LexiPop.dll"
 
 shell.CurrentDirectory = base

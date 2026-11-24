@@ -6,37 +6,31 @@ using System.Text.Json;
 namespace LexiPop.Services;
 
 /// <summary>
-/// 通过 DeepSeek Chat Completions 做长句翻译。
-/// 显式关闭 thinking 模式，避免推理 token 拖慢速度、抬高成本。
+/// 通过 OpenAI 兼容的 Chat Completions 接口做长句翻译。
 /// </summary>
-public sealed class DeepSeekTranslator
+public sealed class ChatTranslator
 {
-    private const string DefaultEndpoint = "https://api.deepseek.com/chat/completions";
-
-    private readonly HttpClient _http;
+    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(60) };
+    private readonly string _providerId;
     private readonly string _apiKey;
     private readonly string _model;
     private readonly string _endpoint;
 
-    public DeepSeekTranslator(string apiKey, string model, string? endpoint = null)
+    public ChatTranslator(string providerId, string apiKey, string model, string endpoint)
     {
+        _providerId = providerId;
         _apiKey = apiKey;
-        _model = string.IsNullOrWhiteSpace(model) ? "deepseek-flash" : model;
-        _endpoint = string.IsNullOrWhiteSpace(endpoint) ? DefaultEndpoint : endpoint.Trim();
-
-        _http = new HttpClient { Timeout = TimeSpan.FromSeconds(60) };
-        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
-        _http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        _model = model.Trim();
+        _endpoint = endpoint.Trim();
     }
 
     public async Task<string> TranslateAsync(string text, CancellationToken cancellationToken = default)
     {
-        var payload = new
+        var payload = new Dictionary<string, object>
         {
-            model = _model,
-            stream = false,
-            thinking = new { type = "disabled" },
-            messages = new[]
+            ["model"] = _model,
+            ["stream"] = false,
+            ["messages"] = new[]
             {
                 new
                 {
@@ -47,14 +41,20 @@ public sealed class DeepSeekTranslator
             },
         };
 
+        // DeepSeek 专有参数，其他提供方不发送。
+        if (_providerId == "deepseek")
+            payload["thinking"] = new { type = "disabled" };
+
         var json = JsonSerializer.Serialize(payload);
 
         using var request = new HttpRequestMessage(HttpMethod.Post, _endpoint)
         {
             Content = new StringContent(json, Encoding.UTF8, "application/json"),
         };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
-        using var response = await _http.SendAsync(request, cancellationToken);
+        using var response = await Http.SendAsync(request, cancellationToken);
         var body = await response.Content.ReadAsStringAsync(cancellationToken);
 
         if (!response.IsSuccessStatusCode)
@@ -70,7 +70,9 @@ public sealed class DeepSeekTranslator
             .GetProperty("content")
             .GetString();
 
-        return content?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(content))
+            throw new InvalidOperationException("模型没有返回译文，请换一个支持文本聊天的模型。");
+        return content.Trim();
     }
 
     private static string Truncate(string value, int length)

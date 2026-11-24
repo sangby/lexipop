@@ -30,7 +30,10 @@ public sealed record ThemePreset(
     // ---- 玻璃质感 ----
     string GlassSurface,    // 半透明面板底色（0.6–0.85 不透明度）
     string GlassHighlight,  // 1px 高光描边（半透明白）
-    string GlassBorder);    // 半透明常规描边
+    string GlassBorder,
+    double RadiusSmall = 6,
+    double RadiusMedium = 10,
+    double RadiusLarge = 14);    // 半透明常规描边
 
 /// <summary>
 /// 主题管理。切换时同步写入 Application.Resources，
@@ -40,30 +43,6 @@ public static class ThemeService
 {
     public static IReadOnlyList<ThemePreset> Presets { get; } =
     [
-        new("graphite", "石墨", true, false,
-            "#1A1B22", "#22252D", "#23262E", "#343848",
-            "#F2F4F8", "#A8ADBB", "#6B7080",
-            "#8B9CFF", "#A5B2FF", "#4ADE80", "#FBBF24", "#F87171", "#15161C",
-            "#B31F2129", "#26FFFFFF", "#33FFFFFF"),
-
-        new("midnight", "午夜", true, false,
-            "#0F1115", "#15181F", "#171A22", "#262B36",
-            "#E8EDF5", "#8B94A6", "#565E6E",
-            "#4DD8C0", "#6EE8D4", "#34D399", "#FBBF24", "#F87171", "#0A0C10",
-            "#B30D0F13", "#26FFFFFF", "#33FFFFFF"),
-
-        new("amber", "暖灰", true, false,
-            "#1C1917", "#262220", "#231F1D", "#3A3430",
-            "#F5EDE6", "#B0A49A", "#776B62",
-            "#E89A5C", "#F2AE75", "#4ADE80", "#FBBF24", "#F87171", "#161312",
-            "#B31F1B19", "#26FFFFFF", "#33FFFFFF"),
-
-        new("violet", "紫夜", true, false,
-            "#16121F", "#1E182B", "#1C1728", "#322A45",
-            "#F0ECF8", "#A79BBF", "#6E6385",
-            "#B18CFF", "#C4A6FF", "#4ADE80", "#FBBF24", "#F87171", "#110E19",
-            "#B3181422", "#26FFFFFF", "#33FFFFFF"),
-
         new("light", "浅色", false, false,
             "#E9EBF0", "#FFFFFF", "#FFFFFF", "#DDE1E8",
             "#1A1D24", "#5A6270", "#8A92A0",
@@ -81,6 +60,9 @@ public static class ThemeService
 
     public static ThemePreset Current { get; private set; } = Presets[0];
 
+    public static IReadOnlyList<ThemePreset> AvailableThemes() =>
+        Presets.Concat(CustomThemeService.LoadAll()).ToArray();
+
     public static event Action? Changed;
 
     /// <summary>最近一次应用耗时（毫秒），用于验收 100ms 指标。</summary>
@@ -90,7 +72,7 @@ public static class ThemeService
     {
         var stopwatch = Stopwatch.StartNew();
 
-        var preset = Presets.FirstOrDefault(p => p.Id == id) ?? Presets[0];
+        var preset = AvailableThemes().FirstOrDefault(p => p.Id == id) ?? Presets[0];
         Current = preset;
 
         var resources = Application.Current?.Resources;
@@ -110,9 +92,9 @@ public static class ThemeService
             resources["ThemeError"] = Brush(preset.Error);
             resources["ThemeStatusBar"] = Brush(preset.StatusBar);
 
-            resources["ThemeRadiusSmall"] = new CornerRadius(6);
-            resources["ThemeRadiusMedium"] = new CornerRadius(10);
-            resources["ThemeRadiusLarge"] = new CornerRadius(14);
+            resources["ThemeRadiusSmall"] = new CornerRadius(preset.RadiusSmall);
+            resources["ThemeRadiusMedium"] = new CornerRadius(preset.RadiusMedium);
+            resources["ThemeRadiusLarge"] = new CornerRadius(preset.RadiusLarge);
 
             resources["ThemeIsDark"] = preset.IsDark;
             resources["ThemeIsGlass"] = preset.IsGlass;

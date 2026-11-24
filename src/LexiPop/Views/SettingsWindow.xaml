@@ -2,8 +2,8 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="设置"
-        Width="540"
-        Height="640"
+        Width="610"
+        Height="700"
         WindowStyle="None"
         ResizeMode="NoResize"
         AllowsTransparency="True"
@@ -95,28 +95,64 @@
                 <StackPanel Margin="0,0,8,0">
                     <TextBlock Text="通用" Style="{StaticResource GroupTitle}" />
                     <CheckBox x:Name="AutoStartCheck" Content="开机自启" />
-                    <CheckBox x:Name="ShowOnStartupCheck" Content="启动时显示窗口" />
 
                     <TextBlock Text="外观" Style="{StaticResource GroupTitle}" />
                     <ComboBox x:Name="ThemeCombo" SelectionChanged="OnThemeChanged" />
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                        <Button Content="新建主题" Margin="0" Click="OnNewTheme" />
+                        <Button Content="编辑主题" Click="OnEditTheme" />
+                    </StackPanel>
+                    <StackPanel x:Name="ThemeEditor" Visibility="Collapsed" Margin="0,10,0,0">
+                        <TextBlock Text="CSS 主题变量（保存到本机 themes 目录）"
+                                   Style="{StaticResource FieldLabel}" />
+                        <TextBox x:Name="ThemeCssBox" Height="270"
+                                 FontFamily="Consolas" FontSize="12"
+                                 AcceptsReturn="True" AcceptsTab="True"
+                                 TextWrapping="NoWrap"
+                                 VerticalScrollBarVisibility="Auto"
+                                 HorizontalScrollBarVisibility="Auto" />
+                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                            <Button Content="保存主题" Margin="0" Click="OnSaveTheme" />
+                            <Button Content="收起编辑器" Click="OnCloseThemeEditor" />
+                        </StackPanel>
+                        <TextBlock x:Name="ThemeStatus" TextWrapping="Wrap" Margin="0,6,0,0"
+                                   Foreground="{DynamicResource ThemeTextMuted}" />
+                    </StackPanel>
 
                     <TextBlock Text="快捷键" Style="{StaticResource GroupTitle}" />
-                    <TextBlock Text="唤出窗口（点击输入框后按下组合键）" Style="{StaticResource FieldLabel}" />
-                    <TextBox x:Name="ToggleHotkeyBox" PreviewKeyDown="OnHotkeyKeyDown" />
-                    <TextBlock Text="划词翻译" Style="{StaticResource FieldLabel}" />
+                    <TextBlock Text="划词翻译（点击输入框后按下组合键）" Style="{StaticResource FieldLabel}" />
                     <TextBox x:Name="TranslateHotkeyBox" PreviewKeyDown="OnHotkeyKeyDown" />
 
                     <TextBlock Text="翻译" Style="{StaticResource GroupTitle}" />
+                    <TextBlock Text="模型提供方" Style="{StaticResource FieldLabel}" />
+                    <ComboBox x:Name="ProviderCombo" SelectionChanged="OnProviderChanged" />
                     <TextBlock Text="API Key" Style="{StaticResource FieldLabel}" />
-                    <TextBox x:Name="ApiKeyBox" />
-                    <TextBlock Text="接口端点（默认 DeepSeek 官方，兼容 OpenAI 格式的服务均可）" Style="{StaticResource FieldLabel}" />
+                    <TextBox x:Name="ApiKeyBox"
+                             ToolTip="可留空并使用 LEXIPOP_API_KEY 环境变量；环境变量优先于此处。" />
+                    <TextBlock Text="聊天接口端点" Style="{StaticResource FieldLabel}" />
                     <TextBox x:Name="EndpointBox" />
-                    <TextBlock Text="模型" Style="{StaticResource FieldLabel}" />
-                    <TextBox x:Name="ModelBox" />
-                    <CheckBox x:Name="EnableTranslationCheck" Content="启用长句翻译" />
+                    <TextBlock Text="模型列表端点（自定义服务可修改）" Style="{StaticResource FieldLabel}" />
+                    <TextBox x:Name="ModelListEndpointBox" />
+                    <TextBlock Text="模型（可直接输入模型 ID）" Style="{StaticResource FieldLabel}" />
+                    <DockPanel>
+                        <Button x:Name="FetchModelsButton" DockPanel.Dock="Right"
+                                Content="抓取模型" Click="OnFetchModels" />
+                        <ComboBox x:Name="ModelCombo" IsEditable="True" />
+                    </DockPanel>
+                    <TextBlock x:Name="ModelFetchStatus" TextWrapping="Wrap"
+                               Foreground="{DynamicResource ThemeTextMuted}" Margin="0,5,0,0" />
+                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                        <CheckBox x:Name="EnableTranslationCheck" Content="启用长句翻译" />
+                        <Button Content="？" Width="24" Height="24" Padding="0" Margin="8,3,0,0"
+                                ToolTip="了解长句翻译" Click="OnLongTextHelp" />
+                    </StackPanel>
 
                     <TextBlock Text="划词" Style="{StaticResource GroupTitle}" />
-                    <CheckBox x:Name="EnablePopupCheck" Content="启用划词浮窗按钮" />
+                    <StackPanel Orientation="Horizontal">
+                        <CheckBox x:Name="EnablePopupCheck" Content="启用划词翻译" />
+                        <Button Content="？" Width="24" Height="24" Padding="0" Margin="8,3,0,0"
+                                ToolTip="了解划词翻译" Click="OnSelectionHelp" />
+                    </StackPanel>
 
                     <TextBlock Text="数据" Style="{StaticResource GroupTitle}" />
                     <TextBlock x:Name="DictInfo" Foreground="{DynamicResource ThemeTextMuted}" />

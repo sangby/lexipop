@@ -4,21 +4,23 @@ import path from 'node:path';
 const settingsPath = path.join(process.env.LOCALAPPDATA, 'LexiPop', 'settings.json');
 const raw = fs.readFileSync(settingsPath, 'utf8').replace(/^\uFEFF/, '');
 const settings = JSON.parse(raw);
-const key = settings.DeepSeekApiKey;
+const key = process.env.LEXIPOP_API_KEY ||
+  (settings.ProviderId === 'deepseek' ? process.env.LEXIPOP_DEEPSEEK_KEY : '') ||
+  settings.ApiKey || settings.DeepSeekApiKey;
 
 if (!key) {
   console.error('no api key in settings.json');
   process.exit(1);
 }
 
-const res = await fetch('https://api.deepseek.com/chat/completions', {
+const res = await fetch(settings.Endpoint || settings.DeepSeekEndpoint, {
   method: 'POST',
   headers: {
     'content-type': 'application/json',
     authorization: 'Bearer ' + key,
   },
   body: JSON.stringify({
-    model: 'deepseek-flash',
+    model: settings.Model || settings.DeepSeekModel,
     messages: [
       { role: 'system', content: '你是翻译引擎。只输出译文，不要解释。' },
       { role: 'user', content: 'The quick brown fox jumps over the lazy dog.' },

@@ -5,7 +5,7 @@ namespace LexiPop.Services;
 
 /// <summary>
 /// 全局共享的查询服务：词库只加载一次，翻译器复用同一个 HttpClient。
-/// 主窗口和划词浮窗共用。
+/// 热键和拖选操作共用。
 /// </summary>
 public sealed class LookupService
 {
@@ -15,7 +15,8 @@ public sealed class LookupService
     public static LookupService Instance => LazyInstance.Value;
 
     private readonly DictionaryStore? _dictionary;
-    private DeepSeekTranslator? _translator;
+    private ChatTranslator? _translator;
+    private bool _translationEnabled;
     private readonly TranslationCache _cache = new();
 
     private LookupService()
@@ -27,45 +28,39 @@ public sealed class LookupService
             ? $"dict: not found at {path}"
             : $"dict: loaded {_dictionary.Count} entries");
 
-        var settings = AppSettings.Load();
-        var key = settings.ResolveDeepSeekKey();
-
-        if (string.IsNullOrEmpty(key))
-        {
-            App.Log("translator: no api key");
-        }
-        else
-        {
-            _translator = new DeepSeekTranslator(key, settings.DeepSeekModel, settings.DeepSeekEndpoint);
-            App.Log($"translator: enabled model={settings.DeepSeekModel} endpoint={settings.DeepSeekEndpoint}");
-        }
+        ConfigureTranslator(clearCache: false);
     }
 
     public bool HasDictionary => _dictionary is not null;
 
-    public bool HasTranslator => _translator is not null;
+    public bool HasTranslator => _translationEnabled && _translator is not null;
+    public bool TranslationEnabled => _translationEnabled;
 
     /// <summary>
     /// 重新读取设置并重建翻译器。
-    /// 设置页保存后必须调用，否则填了新 Key 也要重启程序才生效。
+    /// 设置页保存后调用，立即更新提供方、Key 和模型。
     /// </summary>
-    public void Reload()
+    public void Reload() => ConfigureTranslator(clearCache: true);
+
+    private void ConfigureTranslator(bool clearCache)
     {
         var settings = AppSettings.Load();
-        var key = settings.ResolveDeepSeekKey();
+        var key = settings.ResolveApiKey();
+        _translationEnabled = settings.EnableTranslation;
 
-        if (string.IsNullOrEmpty(key))
+        if (string.IsNullOrEmpty(key) || string.IsNullOrWhiteSpace(settings.Model) ||
+            !ModelProviders.IsValidEndpoint(settings.Endpoint))
         {
             _translator = null;
-            App.Log("translator: reloaded, no api key");
+            App.Log("translator: unavailable (key, model or endpoint missing)");
             return;
         }
 
-        _translator = new DeepSeekTranslator(key, settings.DeepSeekModel, settings.DeepSeekEndpoint);
-        App.Log($"translator: reloaded model={settings.DeepSeekModel} endpoint={settings.DeepSeekEndpoint}");
+        _translator = new ChatTranslator(settings.ProviderId, key, settings.Model, settings.Endpoint);
+        App.Log($"translator: reloaded provider={settings.ProviderId} model={settings.Model} endpoint={settings.Endpoint}");
 
         // 端点或 Key 变了，旧缓存可能来自另一套配置，清掉更稳妥
-        _cache.Clear();
+        if (clearCache) _cache.Clear();
     }
 
     public int DictionaryCount => _dictionary?.Count ?? 0;
@@ -80,9 +75,12 @@ public sealed class LookupService
 
     public async Task<string> TranslateAsync(string text, CancellationToken cancellationToken = default)
     {
+        if (!_translationEnabled)
+            throw new InvalidOperationException("长句翻译已在设置中关闭。");
+
         if (_translator is null)
         {
-            throw new InvalidOperationException("未配置 DeepSeek API key。");
+            throw new InvalidOperationException("请配置模型、接口端点和 API Key。");
         }
 
         if (_cache.TryGet(text, out var cached))

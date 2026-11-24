@@ -12,7 +12,18 @@ $env:NUGET_PACKAGES = Join-Path $root ".nuget"
 $env:DOTNET_NOLOGO = "1"
 $env:DOTNET_CLI_TELEMETRY_OPTOUT = "1"
 
-& (Join-Path $root ".dotnet\dotnet.exe") build $project -c Release
+$systemDotnet = Get-Command dotnet.exe -ErrorAction SilentlyContinue
+$dotnet = if ($null -ne $systemDotnet) {
+    $systemDotnet.Source
+} else {
+    Join-Path $root ".dotnet\dotnet.exe"
+}
+
+if (-not (Test-Path -LiteralPath $dotnet)) {
+    throw "找不到 .NET SDK，请安装 .NET 10 SDK。"
+}
+
+& $dotnet build $project -c Release
 
 if ($LASTEXITCODE -ne 0) {
     Write-Error "编译失败。"
