@@ -48,7 +48,23 @@ public partial class App : Application
         };
 
         Log("=== start ===");
-        Log($"integrity={NativeMethods.GetCurrentIntegrityLevel()}, parent={NativeMethods.GetParentProcessName()}, elevated={Environment.IsPrivilegedProcess}");
+        var integrity = NativeMethods.GetCurrentIntegrityLevel();
+        Log($"integrity={integrity}, parent={NativeMethods.GetParentProcessName()}, elevated={Environment.IsPrivilegedProcess}");
+
+        // 从受限宿主直接打开 exe 时会继承低完整性：AppData 写入、托盘注册和跨进程取词都会失败。
+        // 在占用单实例 mutex 前提示并退出，避免它挡住随后从文件资源管理器启动的正常实例。
+        if (integrity.StartsWith("low", StringComparison.OrdinalIgnoreCase) ||
+            integrity.StartsWith("untrusted", StringComparison.OrdinalIgnoreCase))
+        {
+            Log("startup blocked: low integrity");
+            MessageBox.Show(
+                "LexiPop 当前以受限权限启动，无法访问主题目录、系统托盘和其他程序的选中文本。\n\n请从 Windows 文件资源管理器中双击 LexiPop.exe 启动。",
+                "LexiPop 启动受限",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            Shutdown(1);
+            return;
+        }
 
         _ownsMutex = SingleInstance.TryAcquire();
         Log($"mutex owned={_ownsMutex}");
@@ -89,6 +105,17 @@ public partial class App : Application
             catch (Exception ex)
             {
                 Log("tray unavailable: " + ex.Message);
+            }
+
+            if (_tray?.IsRegistered != true)
+            {
+                MessageBox.Show(
+                    $"系统托盘图标注册失败（错误码 {_tray?.LastError ?? 0}）。LexiPop 将退出，以免留下无法从托盘关闭的后台实例。\n\n请从 Windows 文件资源管理器重新启动；若问题持续，请查看程序目录中的 lexipop.log。",
+                    "LexiPop 托盘不可用",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                Shutdown(1);
+                return;
             }
 
             RegisterHotkeys(settings);
@@ -214,6 +241,7 @@ public partial class App : Application
     /// </summary>
     private void OnSelectionDragged(int x, int y)
     {
+        Log($"selection drag: x={x}, y={y}");
         Dispatcher.BeginInvoke(new Action(async () =>
         {
             try

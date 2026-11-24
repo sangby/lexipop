@@ -34,6 +34,7 @@ public sealed class TrayService : IDisposable
     public event Action? ExitRequested;
 
     public bool IsRegistered => _added;
+    public int LastError { get; private set; }
 
     public TrayService(MessageWindow host, Action<string> log)
     {
@@ -61,15 +62,16 @@ public sealed class TrayService : IDisposable
 
         if (!_added)
         {
-            var error = Marshal.GetLastWin32Error();
-            _log($"tray: NIM_ADD failed, error={error}, hwnd=0x{_host.Handle:X}, cbSize={_data.cbSize}");
+            LastError = Marshal.GetLastWin32Error();
+            _log($"tray: NIM_ADD failed, error={LastError}, hwnd=0x{_host.Handle:X}, cbSize={_data.cbSize}");
             return;
         }
 
         _log("tray: NIM_ADD ok");
 
         _data.uTimeoutOrVersion = NativeMethods.NOTIFYICON_VERSION_4;
-        NativeMethods.Shell_NotifyIcon(NativeMethods.NIM_MODIFY, ref _data);
+        if (!NativeMethods.Shell_NotifyIcon(NativeMethods.NIM_SETVERSION, ref _data))
+            _log($"tray: NIM_SETVERSION failed, error={Marshal.GetLastWin32Error()}");
     }
 
     public void ShowBalloon(string title, string text)
