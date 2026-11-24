@@ -4,7 +4,7 @@ LexiPop 是一款 Windows 划词翻译工具。它常驻系统托盘：选中文
 
 ## 下载与运行
 
-在 [Releases](https://github.com/sangby/lexipop/releases) 下载最新的 `LexiPop-*-win-x64.zip`，解压到可写的普通文件夹，再从 Windows 文件资源管理器双击 `LexiPop.exe`。发布包为 Windows x64 自包含版本，无需另外安装 .NET Desktop Runtime。启动后请在系统托盘中查找 LexiPop 图标；单击图标或右键选择「设置」即可配置程序。
+在 [Releases](https://github.com/sangby/lexipop/releases) 下载最新的 `LexiPop-*-win-x64.zip`，解压到可写的普通文件夹，再从 Windows 文件资源管理器双击 `LexiPop.exe`。从 v0.1.1 起，压缩包内只有这一个 exe；它已包含所需的 .NET 运行时，无需另外安装 .NET Desktop Runtime。程序没有主窗口，启动后请在系统托盘或「显示隐藏的图标」中查找 LexiPop；单击图标或右键选择「设置」即可配置程序。
 
 首次使用请在设置页选择模型提供方、填写自己的 API Key，并选择支持 Chat Completions 的文本模型，然后保存。提供方包括 DeepSeek、OpenAI、OpenRouter 和自定义兼容服务。选择内置提供方会自动填入接口地址；「抓取模型」可读取该服务的模型 ID 列表。部分模型 ID 不支持文本聊天，仍需按提供方的说明选择。
 
@@ -21,6 +21,8 @@ LexiPop 是一款 Windows 划词翻译工具。它常驻系统托盘：选中文
 - 点击浮窗外部会收起浮窗。长文本的原文和译文可以在小窗内滚动查看。
 
 划词抓取依赖目标程序提供的文本选区，必要时会尝试剪贴板方式；部分程序、管理员权限窗口或受保护内容可能无法取词。若「译」按钮、托盘图标或设置保存异常，请确认程序是从正常的 Windows 桌面会话启动，而非受限宿主。程序会在检测到低完整性权限时提示并退出。
+
+若双击后托盘也没有图标，请先确认使用的是最新发布包。v0.1.0 的多文件发布包必须完整解压；缺少运行时 DLL 时，程序会在写入 `lexipop.log` 之前退出。v0.1.1 的单文件包可避免漏解压依赖。若新版本仍无法启动，请查看 exe 同目录的 `lexipop.log`，以及 Windows 事件查看器「Windows 日志 → 应用程序」中的 LexiPop 或 .NET Runtime 错误。
 
 ## 设置与主题
 

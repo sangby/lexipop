@@ -12,7 +12,7 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\lexipop.ico</ApplicationIcon>
     <LangVersion>latest</LangVersion>
-    <Version>0.1.0</Version>
+    <Version>0.1.1</Version>
     <Product>LexiPop</Product>
     <AssemblyTitle>LexiPop Dictionary</AssemblyTitle>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
