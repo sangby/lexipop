@@ -23,7 +23,11 @@ public sealed class AppSettings
 
     public bool EnableTranslation { get; set; } = true;
 
-    public bool EnableSelectionPopup { get; set; } = true;
+    /// <summary>拖选文字后是否显示鼠标旁的「译」按钮；全局热键始终可用。</summary>
+    public bool ShowSelectionButton { get; set; } = true;
+
+    /// <summary>查词成功后自动朗读英文原词；长句翻译不自动发音。</summary>
+    public bool AutoPronounceWord { get; set; }
 
     public string SpeechEnglishVoice { get; set; } = "Microsoft Zira Desktop";
 
@@ -74,6 +78,10 @@ public sealed class AppSettings
         if (!root.TryGetProperty(nameof(Endpoint), out _) &&
             root.TryGetProperty("DeepSeekEndpoint", out var endpoint))
             settings.Endpoint = endpoint.GetString() ?? settings.Endpoint;
+        if (!root.TryGetProperty(nameof(ShowSelectionButton), out _) &&
+            root.TryGetProperty("EnableSelectionPopup", out var oldPopup) &&
+            oldPopup.ValueKind is JsonValueKind.True or JsonValueKind.False)
+            settings.ShowSelectionButton = oldPopup.GetBoolean();
         return settings;
     }
 

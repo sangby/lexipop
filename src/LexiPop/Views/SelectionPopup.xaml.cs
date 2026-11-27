@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Text.RegularExpressions;
 using LexiPop.Models;
 using LexiPop.Services;
 
@@ -32,6 +33,11 @@ public partial class SelectionPopup : Window
         _requestVersion++;
         ShowButtonState();
         PositionAt(screenX, screenY);
+    }
+
+    public void HideButtonIfVisible()
+    {
+        if (IsVisible && ButtonState.Visibility == Visibility.Visible) Hide();
     }
 
     public void ShowExpandedAt(int screenX, int screenY, string text)
@@ -136,6 +142,8 @@ public partial class SelectionPopup : Window
             RememberResult(SourceText.Text, BodyText.Text,
                 (entry.Word, "▶ 发音", SpeechService.EnglishLcid));
             PositionAt(_anchorX, _anchorY);
+            if (IsVisible && AppSettings.Load().AutoPronounceWord && IsEnglishWord(entry.Word))
+                SpeechService.Speak(entry.Word, SpeechService.EnglishLcid);
             return;
         }
 
@@ -166,6 +174,8 @@ public partial class SelectionPopup : Window
             AddSpeakButton(text, "▶ 原文", SpeechService.EnglishLcid);
             AddSpeakButton(translation, "▶ 译文", SpeechService.ChineseLcid);
             if (IsVisible) PositionAt(_anchorX, _anchorY);
+            if (IsVisible && AppSettings.Load().AutoPronounceWord && IsEnglishWord(text))
+                SpeechService.Speak(text, SpeechService.EnglishLcid);
         }
         catch (Exception ex)
         {
@@ -184,6 +194,9 @@ public partial class SelectionPopup : Window
     {
         _lastResult = (source, body, speech);
     }
+
+    private static bool IsEnglishWord(string text) =>
+        text.Length <= 64 && Regex.IsMatch(text, @"^[A-Za-z]+(?:['-][A-Za-z]+)*$");
 
     private void RenderEntry(DictionaryEntry entry)
     {

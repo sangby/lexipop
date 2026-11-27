@@ -18,6 +18,7 @@ public sealed class LookupService
     private ChatTranslator? _translator;
     private bool _translationEnabled;
     private readonly TranslationCache _cache = new();
+    private (string ProviderId, string Key, string Model, string Endpoint)? _cacheConfiguration;
 
     private LookupService()
     {
@@ -48,6 +49,11 @@ public sealed class LookupService
         var key = settings.ResolveApiKey();
         _translationEnabled = settings.EnableTranslation;
 
+        var configuration = (settings.ProviderId, key, settings.Model, settings.Endpoint);
+        if (clearCache && _cacheConfiguration is { } previous && previous != configuration)
+            _cache.Clear();
+        _cacheConfiguration = configuration;
+
         if (string.IsNullOrEmpty(key) || string.IsNullOrWhiteSpace(settings.Model) ||
             !ModelProviders.IsValidEndpoint(settings.Endpoint))
         {
@@ -58,12 +64,11 @@ public sealed class LookupService
 
         _translator = new ChatTranslator(settings.ProviderId, key, settings.Model, settings.Endpoint);
         App.Log($"translator: reloaded provider={settings.ProviderId} model={settings.Model} endpoint={settings.Endpoint}");
-
-        // 端点或 Key 变了，旧缓存可能来自另一套配置，清掉更稳妥
-        if (clearCache) _cache.Clear();
     }
 
     public int DictionaryCount => _dictionary?.Count ?? 0;
+
+    public TranslationCacheStatistics GetTranslationCacheStatistics() => _cache.GetStatistics();
 
     public DictionaryEntry? Lookup(string text) => _dictionary?.Lookup(text);
 

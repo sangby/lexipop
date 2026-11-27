@@ -5,6 +5,8 @@ using System.Text.Json;
 
 namespace LexiPop.Services;
 
+public readonly record struct TranslationCacheStatistics(int Count, long? FileBytes, string FilePath);
+
 /// <summary>
 /// 翻译缓存：内存 + 磁盘（%LOCALAPPDATA%\LexiPop\translation-cache.json）。
 /// 以原文的 SHA-256 为 key，避免直接把长句当键。
@@ -26,6 +28,29 @@ public sealed class TranslationCache
     public int Count
     {
         get { lock (_lock) return _entries.Count; }
+    }
+
+    public TranslationCacheStatistics GetStatistics()
+    {
+        lock (_lock)
+        {
+            try
+            {
+                return new TranslationCacheStatistics(_entries.Count, new FileInfo(_path).Length, _path);
+            }
+            catch (FileNotFoundException)
+            {
+                return new TranslationCacheStatistics(_entries.Count, 0, _path);
+            }
+            catch (DirectoryNotFoundException)
+            {
+                return new TranslationCacheStatistics(_entries.Count, 0, _path);
+            }
+            catch
+            {
+                return new TranslationCacheStatistics(_entries.Count, null, _path);
+            }
+        }
     }
 
     public bool TryGet(string source, out string translation)

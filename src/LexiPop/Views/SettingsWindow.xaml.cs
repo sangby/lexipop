@@ -25,6 +25,7 @@ public partial class SettingsWindow : Window
         InitializeComponent();
         _originalThemeId = ThemeService.Current.Id;
         SourceInitialized += OnSourceInitialized;
+        Activated += OnWindowActivated;
         Closed += OnWindowClosed;
         LoadSettings();
     }
@@ -84,18 +85,37 @@ public partial class SettingsWindow : Window
         ModelCombo.Text = settings.Model;
 
         EnableTranslationCheck.IsChecked = settings.EnableTranslation;
-        EnablePopupCheck.IsChecked = settings.EnableSelectionPopup;
+        ShowSelectionButtonCheck.IsChecked = settings.ShowSelectionButton;
+        AutoPronounceCheck.IsChecked = settings.AutoPronounceWord;
 
         var count = LookupService.Instance.DictionaryCount;
         DictInfo.Text = count > 0
             ? $"词库：{count:N0} 条"
             : "词库：未加载（dict.bin 不存在）";
+        RefreshCacheInfo();
 
         RefreshThemes();
         ThemeCombo.SelectedItem =
             ThemeService.AvailableThemes().FirstOrDefault(p => p.Id == settings.ThemeId)
             ?? ThemeService.Presets[0];
         _loading = false;
+    }
+
+    private void OnWindowActivated(object? sender, EventArgs e) => RefreshCacheInfo();
+
+    private void RefreshCacheInfo()
+    {
+        var stats = LookupService.Instance.GetTranslationCacheStatistics();
+        CacheInfo.Text = $"翻译缓存：{stats.Count:N0} 条 · 文件大小 {FormatFileSize(stats.FileBytes)}";
+        CachePathInfo.Text = $"缓存文件：{stats.FilePath}";
+    }
+
+    private static string FormatFileSize(long? bytes)
+    {
+        if (bytes is null) return "无法读取";
+        if (bytes < 1024) return $"{bytes:N0} B";
+        if (bytes < 1024 * 1024) return $"{bytes / 1024d:0.0} KB";
+        return $"{bytes / (1024d * 1024):0.0} MB";
     }
 
     private void RefreshThemes()
@@ -203,7 +223,7 @@ public partial class SettingsWindow : Window
 
     private void OnSelectionHelp(object sender, RoutedEventArgs e) =>
         MessageBox.Show(this,
-            "在其他程序中拖选文字，鼠标旁会出现「译」按钮；点击后显示本地词典结果或长句译文。也可以按划词热键直接展开结果。结果小窗快捷键可隐藏小窗，再按一次可恢复上次结果。",
+            "在其他程序中拖选文字，开启按钮时鼠标旁会出现「译」；点击后显示本地词典结果或长句译文。关闭按钮只隐藏这个入口，不影响划词热键。结果小窗快捷键可隐藏小窗，再按一次恢复上次结果。",
             "划词翻译", MessageBoxButton.OK, MessageBoxImage.Information);
 
     private void OnLongTextHelp(object sender, RoutedEventArgs e) =>
@@ -276,7 +296,8 @@ public partial class SettingsWindow : Window
         settings.ModelListEndpoint = ModelListEndpointBox.Text.Trim();
         settings.Model = ModelCombo.Text.Trim();
         settings.EnableTranslation = EnableTranslationCheck.IsChecked == true;
-        settings.EnableSelectionPopup = EnablePopupCheck.IsChecked == true;
+        settings.ShowSelectionButton = ShowSelectionButtonCheck.IsChecked == true;
+        settings.AutoPronounceWord = AutoPronounceCheck.IsChecked == true;
         settings.ThemeId = (ThemeCombo.SelectedItem as ThemePreset)?.Id ?? "light";
 
         if (!AppSettings.TrySave(settings))
@@ -299,8 +320,17 @@ public partial class SettingsWindow : Window
     private void OnClearCache(object sender, RoutedEventArgs e)
     {
         var removed = LookupService.Instance.ClearTranslationCache();
-        MessageBox.Show(this, removed > 0 ? $"已清除 {removed} 条翻译缓存。" : "暂无翻译缓存。",
-            "LexiPop", MessageBoxButton.OK, MessageBoxImage.Information);
+        RefreshCacheInfo();
+        var fileBytes = LookupService.Instance.GetTranslationCacheStatistics().FileBytes;
+        var fileRemaining = fileBytes is null or > 0;
+        var message = fileBytes switch
+        {
+            null => $"已清除 {removed} 条内存缓存，但无法确认磁盘缓存文件是否已删除。",
+            > 0 => $"已清除 {removed} 条内存缓存，但磁盘缓存文件未能删除，请检查文件权限。",
+            _ => removed > 0 ? $"已清除 {removed} 条翻译缓存。" : "暂无翻译缓存。"
+        };
+        MessageBox.Show(this, message, "LexiPop", MessageBoxButton.OK,
+            fileRemaining ? MessageBoxImage.Warning : MessageBoxImage.Information);
     }
 
     private void OnCancel(object sender, RoutedEventArgs e)

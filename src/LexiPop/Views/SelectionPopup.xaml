@@ -14,21 +14,28 @@
 
     <Grid>
         <!-- 按钮态 -->
-        <Border x:Name="ButtonState"
-                Width="36"
-                Height="36"
-                CornerRadius="18"
-                Background="{DynamicResource ThemeAccent}"
-                Cursor="Hand"
-                ToolTip="划词翻译"
-                MouseLeftButtonUp="OnButtonClicked">
-            <TextBlock Text="译"
-                       FontSize="15"
-                       FontWeight="SemiBold"
-                       Foreground="#FFFFFF"
-                       HorizontalAlignment="Center"
-                       VerticalAlignment="Center" />
-        </Border>
+        <Grid x:Name="ButtonState" Width="44" Height="44">
+            <Border Width="36" Height="36" CornerRadius="18"
+                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Cursor="Hand" ToolTip="划词翻译" MouseLeftButtonUp="OnButtonClicked">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Background" Value="{DynamicResource ThemeSelectionButtonBackground}" />
+                        <Setter Property="BorderBrush" Value="{DynamicResource ThemeSelectionButtonBorder}" />
+                        <Setter Property="BorderThickness" Value="{DynamicResource ThemeSelectionButtonBorderThickness}" />
+                        <Setter Property="Effect" Value="{DynamicResource ThemeSelectionButtonShadow}" />
+                        <Style.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="{DynamicResource ThemeSelectionButtonHover}" />
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <TextBlock Text="译" FontSize="15" FontWeight="SemiBold"
+                           Foreground="{DynamicResource ThemeSelectionButtonForeground}"
+                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
+        </Grid>
 
         <!-- 卡片态 -->
         <Border x:Name="CardState"

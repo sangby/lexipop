@@ -17,6 +17,7 @@ public partial class App : Application
     private SettingsWindow? _settingsWindow;
     private bool _translateRegistered;
     private bool _recallRegistered;
+    private bool _showSelectionButton = true;
     private bool _ownsMutex;
 
     public static string LogPath => Path.Combine(AppContext.BaseDirectory, "lexipop.log");
@@ -121,7 +122,7 @@ public partial class App : Application
 
             RegisterHotkeys(settings);
 
-            if (settings.EnableSelectionPopup && !_translateRegistered)
+            if (!_translateRegistered)
             {
                 MessageBox.Show(
                     $"划词热键 {settings.HotkeyTranslate} 被其他程序占用，可在托盘「设置」中修改。",
@@ -130,7 +131,7 @@ public partial class App : Application
                     MessageBoxImage.Warning);
             }
 
-            if (settings.EnableSelectionPopup && !_recallRegistered)
+            if (!_recallRegistered)
             {
                 MessageBox.Show(
                     $"结果恢复热键 {settings.HotkeyRecall} 被其他程序占用，可在托盘「设置」中修改。",
@@ -139,12 +140,13 @@ public partial class App : Application
                     MessageBoxImage.Warning);
             }
 
-            // 划词浮窗：全局鼠标钩子检测拖拽选区（受设置开关控制）
-            ApplySelectionPopup(settings.EnableSelectionPopup);
+            // 鼠标钩子始终保留点击窗外收起卡片；设置只控制拖选后的小按钮。
+            ApplySelectionButtonSetting(settings.ShowSelectionButton);
 
+            var buttonHint = settings.ShowSelectionButton ? "拖选文字后点「译」；" : string.Empty;
             _tray?.ShowBalloon(
                 "LexiPop 已启动",
-                $"拖选文字后点「译」；按 {settings.HotkeyTranslate} 翻译，按 {settings.HotkeyRecall} 隐藏或恢复结果小窗。" );
+                buttonHint + $"按 {settings.HotkeyTranslate} 翻译，按 {settings.HotkeyRecall} 隐藏或恢复结果小窗。");
             Log("startup complete");
 
             // 带参数启动可直接预览浮窗结果，便于调试与外部程序调用。
@@ -173,12 +175,6 @@ public partial class App : Application
     {
         _messageWindow?.UnregisterHotkey(MessageWindow.HotkeyTranslate);
         _messageWindow?.UnregisterHotkey(MessageWindow.HotkeyRecall);
-        if (!settings.EnableSelectionPopup)
-        {
-            _translateRegistered = false;
-            _recallRegistered = false;
-            return;
-        }
         var translate = HotkeyParser.Parse(settings.HotkeyTranslate)
                         ?? (NativeMethods.MOD_CONTROL | NativeMethods.MOD_ALT, 0x53u);
 
@@ -193,19 +189,14 @@ public partial class App : Application
         Log($"hotkey: translate={_translateRegistered} ({settings.HotkeyTranslate}), recall={_recallRegistered} ({settings.HotkeyRecall})");
     }
 
-    private void ApplySelectionPopup(bool enabled)
+    private void ApplySelectionButtonSetting(bool showButton)
     {
-        if (!enabled)
-        {
-            _mouseHook?.Dispose();
-            _mouseHook = null;
-            _selectionPopup?.Hide();
-            Log("selection popup disabled");
-            return;
-        }
+        _showSelectionButton = showButton;
+        if (!showButton) _selectionPopup?.HideButtonIfVisible();
 
         if (_mouseHook is { IsActive: true }) return;
 
+        _mouseHook?.Dispose();
         _mouseHook = new MouseHook();
         if (_mouseHook.IsActive)
         {
@@ -242,8 +233,8 @@ public partial class App : Application
 
         ThemeService.Apply(settings.ThemeId);
         RegisterHotkeys(settings);
-        ApplySelectionPopup(settings.EnableSelectionPopup);
-        if (settings.EnableSelectionPopup && (!_translateRegistered || !_recallRegistered))
+        ApplySelectionButtonSetting(settings.ShowSelectionButton);
+        if (!_translateRegistered || !_recallRegistered)
         {
             var unavailable = new List<string>();
             if (!_translateRegistered) unavailable.Add($"划词翻译：{settings.HotkeyTranslate}");
@@ -268,12 +259,14 @@ public partial class App : Application
     /// </summary>
     private void OnSelectionDragged(int x, int y)
     {
+        if (!_showSelectionButton) return;
         Log($"selection drag: x={x}, y={y}");
         Dispatcher.BeginInvoke(new Action(async () =>
         {
             try
             {
                 await Task.Delay(40);
+                if (!_showSelectionButton) return;
 
                 var (text, diagnostics) = CaptureSelection(allowClipboard: true);
                 if (string.IsNullOrWhiteSpace(text))
@@ -282,6 +275,7 @@ public partial class App : Application
                     return;
                 }
 
+                if (!_showSelectionButton) return;
                 _selectionPopup ??= new SelectionPopup();
                 _selectionPopup.ShowAt(x, y, text);
                 Log($"popup: shown len={text.Length} ({diagnostics})");
