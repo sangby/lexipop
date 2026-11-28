@@ -236,6 +236,22 @@
                     <TextBlock Text="朗读英文原词；长句翻译不自动发音，仍可手动点发音按钮。"
                                Foreground="{DynamicResource ThemeTextMuted}" TextWrapping="Wrap" Margin="0,4,0,0" />
 
+                    <TextBlock Text="状态与自检" Style="{StaticResource GroupTitle}" />
+                    <TextBlock x:Name="VersionInfo" TextWrapping="Wrap" />
+                    <TextBlock x:Name="ExePathInfo" Margin="0,4,0,0" TextWrapping="Wrap" />
+                    <TextBlock x:Name="RuntimeInfo" Margin="0,4,0,0" TextWrapping="Wrap" />
+                    <TextBlock x:Name="CaptureInfo" Margin="0,4,0,0" TextWrapping="Wrap" />
+                    <TextBlock Text="模型测试使用上方当前填写的配置，会发送一条简短测试请求。"
+                               Margin="0,8,0,4" TextWrapping="Wrap" />
+                    <WrapPanel>
+                        <Button Content="刷新状态" Margin="0,0,8,8" Click="OnRefreshDiagnostics" />
+                        <Button x:Name="TestModelButton" Content="测试模型连接" Margin="0,0,8,8" Click="OnTestModel" />
+                        <Button x:Name="TestSpeechButton" Content="试听发音" Margin="0,0,8,8" Click="OnTestSpeech" />
+                        <Button Content="复制诊断信息" Margin="0,0,0,8" Click="OnCopyDiagnostics" />
+                    </WrapPanel>
+                    <TextBlock x:Name="DiagnosticTestStatus" TextWrapping="Wrap"
+                               Foreground="{DynamicResource ThemeTextMuted}" />
+
                     <TextBlock Text="数据" Style="{StaticResource GroupTitle}" />
                     <TextBlock x:Name="DictInfo" Foreground="{DynamicResource ThemeTextMuted}" />
                     <TextBlock x:Name="CacheInfo" Margin="0,6,0,0" TextWrapping="Wrap" />

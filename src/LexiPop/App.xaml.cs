@@ -19,6 +19,21 @@ public partial class App : Application
     private bool _recallRegistered;
     private bool _showSelectionButton = true;
     private bool _ownsMutex;
+    private string _lastCaptureStatus = "尚未尝试取词";
+
+    public (bool Tray, bool MouseHook, bool TranslateHotkey, bool RecallHotkey,
+        string LastCapture) GetDiagnosticStatus() =>
+        (_tray?.IsRegistered == true, _mouseHook?.IsActive == true,
+            _translateRegistered, _recallRegistered, _lastCaptureStatus);
+
+    private void RecordCapture(string? text, string diagnostics)
+    {
+        var source = diagnostics.StartsWith("uia:", StringComparison.Ordinal) &&
+                     !diagnostics.Contains("|clip=", StringComparison.Ordinal)
+            ? "UI Automation"
+            : text is not null ? "剪贴板回退" : "未取到文本";
+        _lastCaptureStatus = $"{DateTime.Now:HH:mm:ss} · {source} · {(text?.Length ?? 0)} 字符";
+    }
 
     public static string LogPath => Path.Combine(AppContext.BaseDirectory, "lexipop.log");
 
@@ -269,6 +284,7 @@ public partial class App : Application
                 if (!_showSelectionButton) return;
 
                 var (text, diagnostics) = CaptureSelection(allowClipboard: true);
+                RecordCapture(text, diagnostics);
                 if (string.IsNullOrWhiteSpace(text))
                 {
                     Log($"popup: no selection ({diagnostics})");
@@ -304,6 +320,7 @@ public partial class App : Application
 
         // 先取词，再显示浮窗：浮窗出现后会改变 UIA 的焦点。
         var (selected, diagnostics) = CaptureSelection();
+        RecordCapture(selected, diagnostics);
         Log($"hotkey {id} -> {diagnostics}");
 
         if (string.IsNullOrWhiteSpace(selected))

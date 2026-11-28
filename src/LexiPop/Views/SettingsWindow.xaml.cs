@@ -1,3 +1,4 @@
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -93,6 +94,7 @@ public partial class SettingsWindow : Window
             ? $"词库：{count:N0} 条"
             : "词库：未加载（dict.bin 不存在）";
         RefreshCacheInfo();
+        RefreshDiagnostics();
 
         RefreshThemes();
         ThemeCombo.SelectedItem =
@@ -101,7 +103,117 @@ public partial class SettingsWindow : Window
         _loading = false;
     }
 
-    private void OnWindowActivated(object? sender, EventArgs e) => RefreshCacheInfo();
+    private void OnWindowActivated(object? sender, EventArgs e)
+    {
+        RefreshCacheInfo();
+        RefreshDiagnostics();
+    }
+
+    private void RefreshDiagnostics()
+    {
+        var version = typeof(App).Assembly.GetName().Version?.ToString(3) ?? "未知";
+        var exe = Environment.ProcessPath ?? "无法获取";
+        var modified = File.Exists(exe) ? File.GetLastWriteTime(exe).ToString("yyyy-MM-dd HH:mm") : "未知";
+        var status = (Application.Current as App)?.GetDiagnosticStatus();
+        VersionInfo.Text = $"运行版本：{version}（文件修改：{modified}）";
+        ExePathInfo.Text = $"运行文件：{exe}";
+        RuntimeInfo.Text = status is null ? "运行状态：无法获取" :
+            $"托盘：{State(status.Value.Tray)} · 鼠标钩子：{State(status.Value.MouseHook)} · " +
+            $"划词热键：{State(status.Value.TranslateHotkey)} · 结果热键：{State(status.Value.RecallHotkey)}";
+        CaptureInfo.Text = $"上次取词：{status?.LastCapture ?? "未知"}";
+    }
+
+    private static string State(bool value) => value ? "正常" : "不可用";
+
+    private void OnRefreshDiagnostics(object sender, RoutedEventArgs e)
+    {
+        RefreshDiagnostics();
+        RefreshCacheInfo();
+    }
+
+    private async void OnTestModel(object sender, RoutedEventArgs e)
+    {
+        var endpoint = EndpointBox.Text.Trim();
+        var model = ModelCombo.Text.Trim();
+        if (!ModelProviders.IsValidEndpoint(endpoint) || model.Length == 0)
+        {
+            DiagnosticTestStatus.Text = "请先填写完整的聊天接口网址和模型 ID。";
+            return;
+        }
+
+        var provider = (ProviderCombo.SelectedItem as ModelProvider)?.Id ?? "custom";
+        var saved = AppSettings.Load();
+        var key = ApiKeyBox.Text.Trim();
+        if (key.Length == 0 && provider == saved.ProviderId)
+            key = saved.ResolveApiKey();
+
+        TestModelButton.IsEnabled = false;
+        DiagnosticTestStatus.Text = "正在发送测试请求…";
+        try
+        {
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+            var translator = new ChatTranslator(provider, key, model, endpoint);
+            await translator.TranslateAsync("hello", timeout.Token);
+            DiagnosticTestStatus.Text = "模型连接正常，已收到文本回复。";
+        }
+        catch (OperationCanceledException)
+        {
+            DiagnosticTestStatus.Text = "模型测试超时（20 秒）。";
+        }
+        catch (Exception ex)
+        {
+            // 接口错误正文可能含敏感信息；这里只显示状态码或异常类型。
+            var reason = ex.Message.StartsWith("HTTP ", StringComparison.Ordinal)
+                ? ex.Message.Split(':')[0]
+                : ex.GetType().Name;
+            DiagnosticTestStatus.Text = $"模型测试失败：{reason}。请核对 Key、端点和模型。";
+        }
+        finally
+        {
+            TestModelButton.IsEnabled = true;
+        }
+    }
+
+    private async void OnTestSpeech(object sender, RoutedEventArgs e)
+    {
+        TestSpeechButton.IsEnabled = false;
+        DiagnosticTestStatus.Text = "正在试听…";
+        try
+        {
+            DiagnosticTestStatus.Text = await SpeechService.TestSpeakAsync()
+                ? "SAPI 已完成发音调用；如未听到声音，请检查系统音量和输出设备。"
+                : "发音不可用，请检查 Windows 语音组件。";
+        }
+        finally
+        {
+            TestSpeechButton.IsEnabled = true;
+        }
+    }
+
+    private void OnCopyDiagnostics(object sender, RoutedEventArgs e)
+    {
+        RefreshDiagnostics();
+        RefreshCacheInfo();
+        var settings = AppSettings.Load();
+        var stats = LookupService.Instance.GetTranslationCacheStatistics();
+        var report = string.Join(Environment.NewLine,
+            "LexiPop 诊断信息",
+            VersionInfo.Text, ExePathInfo.Text, RuntimeInfo.Text, CaptureInfo.Text,
+            DictInfo.Text,
+            $"翻译缓存：{stats.Count} 条，{FormatFileSize(stats.FileBytes)}",
+            $"模型提供方：{settings.ProviderId}；模型：{settings.Model}；已配置 Key：{!string.IsNullOrWhiteSpace(settings.ResolveApiKey())}",
+            $"长句翻译：{(LookupService.Instance.HasTranslator ? "可用" : "未配置或已关闭")}",
+            $"日志路径：{App.LogPath}");
+        try
+        {
+            Clipboard.SetText(report);
+            DiagnosticTestStatus.Text = "诊断信息已复制；不包含 API Key、选中文本或日志内容。";
+        }
+        catch (Exception)
+        {
+            DiagnosticTestStatus.Text = "复制失败：系统剪贴板暂时不可用。";
+        }
+    }
 
     private void RefreshCacheInfo()
     {

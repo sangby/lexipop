@@ -13,13 +13,19 @@ public static class SpeechService
     public static void Speak(string text, string lcid = EnglishLcid)
     {
         if (string.IsNullOrWhiteSpace(text)) return;
+        _ = TestSpeakAsync(text, lcid);
+    }
 
-        _ = Task.Run(() =>
+    /// <summary>试听并报告 SAPI 是否完成调用；不判断扬声器音量或实际听感。</summary>
+    public static Task<bool> TestSpeakAsync(string text = "Hello, LexiPop", string lcid = EnglishLcid)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return Task.FromResult(false);
+        return Task.Run(() =>
         {
             try
             {
                 var type = Type.GetTypeFromProgID("SAPI.SpVoice");
-                if (type is null) return;
+                if (type is null) return false;
 
                 lock (Sync)
                 {
@@ -46,10 +52,11 @@ public static class SpeechService
 
                     sapi.Speak(text, 0); // 0 = 同步
                 }
+                return true;
             }
             catch
             {
-                // 没有 SAPI 或没有可用语音时静默失败
+                return false;
             }
         });
     }
